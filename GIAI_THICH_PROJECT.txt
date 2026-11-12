@@ -17,8 +17,8 @@ Luu y: Duong dan trong tai lieu duoc viet tu thu muc goc project.
 resources/views/minefield/*.blade.php
   Tao giao dien HTML: form, nut, ban choi, dialog va cac vung hien thi.
 
-public/minefield/js/login.js, modes.js, game.js
-  Bat su kien click/submit tren trang va dieu khien giao dien.
+public/minefield/js/login.js, modes.js, game.js, shop.js, skins.js
+  Bat su kien click/submit tren trang va dieu khien giao dien, cua hang skin.
 
 public/minefield/js/engine.js
   Xu ly luat game: tao min, mo o, dat co, loang o trong, kiem tra thang/thua.
@@ -106,6 +106,10 @@ Nhung ham API duoc phoi ra window.MF_API:
   submitLoss(token)       -> POST /api/games/{token}/loss
   getLeaderboard(data)    -> GET /api/leaderboard?...
   getBestTime(data)       -> GET /api/best-time?...
+  useHint(token)          -> POST /api/games/{token}/hint
+  getShop()               -> GET /api/shop
+  buySkin(skinId, type)   -> POST /api/shop/buy
+  equipSkin(skinId, type) -> POST /api/shop/equip
 
 getPrefs()/setPrefs():
   Doc va ghi mode/do kho da chon vao localStorage voi key mf_prefs.
@@ -117,7 +121,11 @@ Route::view('/', 'minefield.login')
   Khi mo /, Laravel render trang login.
 
 Route::view('/modes', 'minefield.modes')
+  -> trang chon che do va do kho.
 Route::view('/game', 'minefield.game')
+  -> trang ban choi.
+Route::view('/shop', 'minefield.shop')
+  -> trang cua hang trang phuc (Phong Thu Chien Thuat).
 Route::view('/admin/login', 'minefield.admin-login')
   Cac route tren tra ve Blade view.
 
@@ -1231,7 +1239,7 @@ Chay bang:
 package.json co script:
   "test:js": "node tests/js/engine.test.cjs"
 
-Ket qua da xac nhan: 23 tests passed.
+Ket qua da xac nhan: 25 tests passed.
 
 14.4 Gioi han request dang nhap (B5)
 
@@ -1257,13 +1265,15 @@ Ten mode va difficulty tren web cung la tieng Anh. Cac chu tieng Viet con lai
 trong JavaScript la ghi chu danh cho nguoi doc ma nguon, khong hien thi cho
 nguoi choi.
 
-14.6 Ket qua kiem thu sau cac thay doi
+14.6 Ket qua kiem thu sau cac thay doi (cap nhat Tuan 12-13)
 
   php artisan test
-    31 passed (197 assertions)
+    40 passed (259 assertions) — bao gom ExampleTest, MinefieldFlowTest,
+    AntiCheatAndTimerTest va ShopAndCurrencyTest.
 
   node tests/js/engine.test.cjs
-    23 tests passed
+    25 tests passed — bao gom Neighbors, Mine placement, Flood-fill,
+    Flags & chord, Win/lose, Hint (frontier) va Edge cases/state locks.
 
 Bot Minimax + Alpha-Beta trong muc 13 van la de xuat; thay vao do he thong da tich hop tinh nang Goi y min thong minh (Hint) tren engine.js ket hop tru xu DB an toan.
 
@@ -1297,11 +1307,15 @@ Bot Minimax + Alpha-Beta trong muc 13 van la de xuat; thay vao do he thong da ti
   + Tu dong cam co (flag) vao o min do ngay lap tuc voi do tre 0ms.
 - Giao dien game: nut Hint tren thanh HUD, phim tat H, hieu ung song radar (radar pulse).
 
-15.3 Cua hang Skin (Shop) va Quan ly trang bi
-- Danh muc 14 skin duoc dinh nghia trong App\Services\SkinCatalog:
-  + 7 skin ban co (Boards): classic (0 xu), matrix (100), synthwave (180), wood (260), amethyst (360), magma (500), royal (750).
-  + 7 skin la co (Flags): classic (0 xu), pirate (80), hazard (140), sapphire (200), radar (280), star (400), skull (550).
-- GET /api/shop: tra ve danh muc, thong tin skin, so du xu va trang thai so huu.
+15.3 Cua hang Skin (Shop - Phong Thu Chien Thuat) va Quan ly trang bi
+- Danh muc 26 skin duoc dinh nghia trong App\Services\SkinCatalog:
+  + 13 skin ban co (Boards): classic (0 xu), matrix (100), glacier (140), synthwave (180), sakura (220), wood (260), ocean (320), amethyst (360), emerald (440), magma (500), cyberpunk (620), royal (750), obsidian (900).
+  + 13 skin la co SVG (Flags): classic (0 xu), pirate (80), sakura (120), hazard (140), lightning (180), sapphire (200), shield (240), radar (280), crystal (340), star (400), phoenix (480), skull (550), crown (700).
+- Giao dien Phong Thu Chien Thuat (shop.blade.php + shop.js + skins.js):
+  + Ban thu truc tiep 5x5 cho phep nguoi choi mo o, cam co, phoi cap ban + co bat ky va hoan tac ve bo dang dung truoc khi quyet dinh mua.
+  + Ghim muc tieu tich xu (Pin), uoc tinh so van thang can choi theo tung do kho.
+  + Loc theo trang thai so huu (Tat ca / Du xu mua / Chua so huu / Da so huu), 4 bac thiet ke (Tieu chuan / Chien thuat / Dac nhiem / Tinh anh), tim kiem theo ten/phong cach, sap xep va modal chi tiet co so sanh A/B.
+- GET /api/shop: tra ve danh muc, thong tin skin, so du xu, danh sach da mo khoa va trang bi hien tai.
 - POST /api/shop/buy:
   + Kiem tra nguoi choi da dang nhap.
   + Kiem tra skin co ton tai trong SkinCatalog va nguoi dung chua tung mua (bang user_skins).
@@ -1315,20 +1329,20 @@ Bot Minimax + Alpha-Beta trong muc 13 van la de xuat; thay vao do he thong da ti
 - Backend Laravel dong vai tro quan ly co so du lieu va chong gian lan:
   + Cap phat Game Token (UUID) va ghi nhan thoi diem `started_at` chinh xac mili-giay khi van dau bat dau (`POST /api/games`).
   + Thuc thi cac giao dich xu an toan (tru 100 xu cho Hint, mua Skin trong `DB::transaction()`).
-  + Kiem tra hop le trang thai `playing`, so khop mode/do kho va tham dinh thoi gian chong gian lan (`TIME_TOLERANCE_MS = 2.500 ms`) khi luu ket qua thang/thua va cap nhat `records` leaderboard (`POST /api/games/{token}/win`, `/loss`).
+  + Kiem tra hop le trang thai `playing`, so khop mode/do kho va tham dinh thoi gian chong gian lan (`MIN_PLAUSIBLE_TIME_MS = 200 ms`, `TIME_TOLERANCE_MS = 2.500 ms`) khi luu ket qua thang/thua va cap nhat `records` leaderboard (`POST /api/games/{token}/win`, `/loss`).
 
 
 16. BANG DOI CHIEU PHIEU DANG KY DE TAI VA MA NGUON THUC TE
 ===========================================================
 
-1. Ba che do choi (Classic, Plus, Corner): DA CO (3 che do x 3 do kho = 9 bien the, test 23 JS tests).
-2. Tinh gio Timer va chong gian lan: DA CO (started_at tren server, kiem tra sai lech <= 2.500 ms qua verifyTime).
+1. Ba che do choi (Classic, Plus, Corner): DA CO (3 che do x 3 do kho = 9 bien the, test 25 JS tests).
+2. Tinh gio Timer va chong gian lan: DA CO (started_at tren server, thoi gian toi thieu 200 ms, kiem tra sai lech <= 2.500 ms qua verifyTime).
 3. Bang xep hang (Leaderboard): DA CO (records table, loc theo mode/diff, chinh xac den ms).
 4. Quan tri Admin: DA CO (CMS thong ke ty le thang/thua, CRUD user, khoa nick, CRUD record, Give Coins).
 5. Xac thuc nguoi dung: DA CO (signup, login bam mat khau, guest session, throttle 10 lan/phut).
 6. Bot Minimax + Alpha-Beta: CHUA CO (Da chuyen doi thanh tinh nang Goi y min thong minh Hint trong engine.js + tru xu DB tai server).
 7. Khong co Multiplayer va Khong tich hop thanh toan tien that: KHOP 100% voi pham vi cam ket.
-8. Stack cong nghe: KHOP 100% (PHP 8.2, Laravel 12, MySQL, JavaScript, PHPUnit).
+8. Stack cong nghe: KHOP 100% (PHP 8.2/8.3, Laravel 12, MySQL / TiDB Cloud Serverless, Docker php:8.3-apache, JavaScript, PHPUnit 40 tests, Node.js 25 tests).
 
 
 17. BO CAU HOI VA DAP AN PHAN BIEN DO AN (Q&A CHO BUOI BAO VE)
@@ -1377,6 +1391,6 @@ Admin co the truy cap modal Dieu chinh so du trong trang quan tri de cong them x
 
 Cau 10: Ty le dong gop 50/50 giua hai thanh vien trong nhom duoc the hien ra sao?
 Tra loi:
-Hai thanh vien phoi hop chat che theo dung mo hinh chuyen mon hoa:
-- To Nguyen Hoang An (50%): Thiet ke va lap trinh Backend Laravel, CSDL MySQL, RESTful API, Logic Cua hang Skin va Tien te, xac thuc giao dich DB, Trang quan tri CMS va cac bai test PHPUnit (31 tests).
-- Nguyen Phan Thien Phuoc (50%): Thiet ke giao dien Frontend Blade, Engine JavaScript client & logic game (engine.js, game.js, ui.js), thuat toan 3 che do choi & Hint (engine.test.cjs voi 23 tests), he thong Theme pastel va hieu ung chuyen dong UI Motion, viet va dong bo tai lieu do an.
+Hai thanh vien phoi hop chat che theo dung mo hinh chuyen mon hoa va Phieu dang ky de tai:
+- Nguyen Phan Thien Phuoc (50%): Thiet ke va lap trinh Backend Laravel 12, CSDL MySQL / TiDB Cloud Serverless, Migration & Seeder, Xac thuc & Phan quyen (Auth/Guest/Lock), API chong gian lan Timer, Nghiep vu Xu/Hint/Cua hang Skin qua DB::transaction(), Trang quan tri CMS, PHPUnit tests (40 tests) & Deploy Docker/Cloud.
+- To Nguyen Hoang An (50%): Thiet ke giao dien Frontend Blade/HTML5/CSS3, Engine JavaScript client & logic game (engine.js, game.js, shop.js, skins.js, ui.js), thuat toan 3 che do x 3 do kho, Flood-fill, Chording & Hint vung bien, Giao dien Responsive PC/Tablet/Mobile & cam ung, 7 chu de mau pastel va UI Motion, Node.js unit tests (25 tests) & Viet bao cao/Huong dan.

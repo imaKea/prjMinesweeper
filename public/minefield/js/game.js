@@ -265,6 +265,12 @@
     if (flagFoot && game) {
       flagFoot.textContent = '🚩 ' + game.flags + ' cờ đã đặt';
     }
+    const progressBar = $('game-progress-fill');
+    if (progressBar && game && game.cells) {
+      const safeTotal = Math.max(1, game.cells.length - game.mines);
+      const percent = Math.min(100, Math.round((game.revealedCount / safeTotal) * 100));
+      progressBar.style.width = percent + '%';
+    }
   }
 
   // ----------------------------------------------------------------- timer
@@ -498,6 +504,81 @@
   if (btnHint) btnHint.addEventListener('click', onHintClick);
 
   // ----------------------------------------------------------------- input
+  let touchTool = 'reveal'; // 'reveal' | 'flag'
+  const touchToolSeg = $('touch-tool-seg');
+  const touchToolHint = $('touch-tool-hint');
+
+  function isTouchEnvironment() {
+    const coarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+    const noHover = window.matchMedia && window.matchMedia('(hover: none)').matches;
+    const touchScreen = (navigator.maxTouchPoints > 0) && window.innerWidth <= 1024;
+    return Boolean(coarse || noHover || touchScreen || window.innerWidth <= 640);
+  }
+
+  function setInputMode(nextMode) {
+    const modeName = nextMode === 'touch' ? 'touch' : 'mouse';
+    document.body.dataset.inputMode = modeName;
+
+    const badge = $('guide-device-badge');
+    const revTitle = $('guide-reveal-title');
+    const revDesc = $('guide-reveal-desc');
+    const flagTitle = $('guide-flag-title');
+    const flagDesc = $('guide-flag-desc');
+    const hintTitle = $('guide-hint-title');
+    const hintDesc = $('guide-hint-desc');
+
+    if (modeName === 'touch') {
+      if (badge) badge.textContent = window.innerWidth <= 640 ? 'Điện thoại · Cảm ứng' : 'Cảm ứng · Tablet / Mobile';
+      if (revTitle) revTitle.textContent = 'Chạm nhanh (Mở ô)';
+      if (revDesc) revDesc.textContent = 'Chạm để mở ô an toàn. Chạm vào ô số đã đủ cờ để mở nhanh xung quanh.';
+      if (flagTitle) flagTitle.textContent = 'Nhấn giữ hoặc nút Cắm cờ';
+      if (flagDesc) flagDesc.textContent = 'Nhấn giữ ô ~0.4 giây để cắm/gỡ cờ, hoặc chọn nút "🚩 Cắm cờ" phía trên bàn chơi để chạm 1 lần cắm cờ nhanh.';
+      if (hintTitle) hintTitle.textContent = 'Nút Gợi ý';
+      if (hintDesc) hintDesc.textContent = 'Chạm nút Gợi ý (100 xu) phía trên để radar dò và cắm cờ 1 quả mìn.';
+    } else {
+      if (badge) badge.textContent = 'PC · Chuột & Phím';
+      if (revTitle) revTitle.textContent = 'Chuột trái';
+      if (revDesc) revDesc.textContent = 'Mở một ô an toàn. Bấm vào ô số đã đủ cờ để mở nhanh xung quanh.';
+      if (flagTitle) flagTitle.textContent = 'Chuột phải (hoặc phím F)';
+      if (flagDesc) flagDesc.textContent = 'Cắm cờ hoặc bỏ cờ đánh dấu.';
+      if (hintTitle) hintTitle.textContent = 'Gợi ý (Phím H)';
+      if (hintDesc) hintDesc.textContent = 'Dùng 100 xu để dò radar và cắm cờ 1 quả mìn.';
+    }
+  }
+
+  function setTouchTool(nextTool) {
+    touchTool = nextTool === 'flag' ? 'flag' : 'reveal';
+    if (touchToolSeg) {
+      touchToolSeg.querySelectorAll('.touch-tool-btn').forEach((btn) => {
+        const active = btn.dataset.tool === touchTool;
+        btn.classList.toggle('is-active', active);
+        btn.setAttribute('aria-pressed', String(active));
+      });
+    }
+    if (touchToolHint) {
+      touchToolHint.textContent = touchTool === 'flag'
+        ? 'Đang bật chế độ Cắm cờ: chạm vào ô kín để cắm hoặc gỡ cờ nhanh'
+        : 'Chạm để mở ô · Nhấn giữ 0.4s để cắm/gỡ cờ';
+    }
+    if (el.board) {
+      el.board.dataset.touchTool = touchTool;
+    }
+  }
+
+  if (touchToolSeg) {
+    touchToolSeg.addEventListener('click', (e) => {
+      const btn = e.target.closest('.touch-tool-btn');
+      if (!btn) return;
+      setTouchTool(btn.dataset.tool);
+    });
+  }
+
+  setInputMode(isTouchEnvironment() ? 'touch' : 'mouse');
+  setTouchTool('reveal');
+  window.addEventListener('resize', () => {
+    setInputMode(isTouchEnvironment() ? 'touch' : 'mouse');
+  }, { passive: true });
+
   function reveal(i) {
     apply(game.cells[i].revealed ? game.chord(i) : game.reveal(i));
   }
@@ -507,6 +588,7 @@
   }
 
   let touchLongPressed = false;
+  let touchMoved = false;
   let suppressClick = false;
   let pressTimer = null;
   let pressStartX = 0;
@@ -523,7 +605,13 @@
     const b = e.target.closest('.cell');
     if (!b) return;
     if (suppressClick) { suppressClick = false; return; }
-    reveal(+b.dataset.i);
+    if (touchMoved) { touchMoved = false; return; }
+    const idx = +b.dataset.i;
+    if (touchTool === 'flag' && game && game.cells[idx] && !game.cells[idx].revealed) {
+      flag(idx);
+      return;
+    }
+    reveal(idx);
   });
 
   el.board.addEventListener('contextmenu', (e) => {
@@ -539,6 +627,12 @@
   el.board.addEventListener('pointerdown', (e) => {
     suppressClick = false;
     touchLongPressed = false;
+    touchMoved = false;
+    if (e.pointerType === 'touch') {
+      setInputMode('touch');
+    } else if (e.pointerType === 'mouse' && !isTouchEnvironment()) {
+      setInputMode('mouse');
+    }
     if (e.pointerType !== 'touch') return;
     const b = e.target.closest('.cell');
     if (!b) return;
@@ -555,8 +649,9 @@
     }, 380);
   });
   el.board.addEventListener('pointermove', (e) => {
-    if (e.pointerType !== 'touch' || pressTimer == null) return;
+    if (e.pointerType !== 'touch') return;
     if (Math.hypot(e.clientX - pressStartX, e.clientY - pressStartY) > 10) {
+      touchMoved = true;
       clearLongPress();
     }
   }, { passive: true });

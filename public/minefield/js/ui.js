@@ -478,21 +478,7 @@
   let shopType = 'board';
   let shopData = null;
 
-  function render5x5BoardPreview(skinId, palette, accent) {
-    const pal = palette || ['#141c25', '#2a3541', '#344252', '#e4a63b'];
-    return '<div class="shop-preview-matrix" data-skin="' + esc(skinId) + '" style="background:' + pal[0] + ';border-color:' + (accent || pal[3]) + '">' +
-      '<div class="sp-row"><span class="sp-c"></span><span class="sp-c"></span><span class="sp-c"></span><span class="sp-c"></span><span class="sp-c"></span></div>' +
-      '<div class="sp-row"><span class="sp-c"></span><span class="sp-c"></span><span class="sp-c n1">1</span><span class="sp-c n1">1</span><span class="sp-c n1">1</span></div>' +
-      '<div class="sp-row"><span class="sp-c"></span><span class="sp-c n1">1</span><span class="sp-c n2">2</span><span class="sp-c is-flag">🚩</span><span class="sp-c n1">1</span></div>' +
-      '<div class="sp-row"><span class="sp-c"></span><span class="sp-c n1">1</span><span class="sp-c"></span><span class="sp-c n2">2</span><span class="sp-c n1">1</span></div>' +
-      '<div class="sp-row"><span class="sp-c"></span><span class="sp-c n1">1</span><span class="sp-c n1">1</span><span class="sp-c n1">1</span><span class="sp-c"></span></div>' +
-    '</div>';
-  }
-
-  function renderFlagPreview(skinId) {
-    const flagSvg = (window.MF_SKINS && window.MF_SKINS.getFlagSvg(skinId)) || '';
-    return '<div class="shop-preview-flag">' + flagSvg + '</div>';
-  }
+  const skins = window.MF_SKINS || {};
 
   function renderShopContent() {
     if (!shopDialog || !shopData) return;
@@ -512,8 +498,8 @@
       const canAfford = (shopData.coins || 0) >= item.price;
 
       const previewHtml = isBoard
-        ? render5x5BoardPreview(item.id, item.palette, item.accent)
-        : renderFlagPreview(item.id);
+        ? skins.renderBoardPreviewHtml(item)
+        : skins.renderFlagPreviewHtml(item.id, item.accent);
 
       let actionBtnHtml = '';
       if (isEquipped) {

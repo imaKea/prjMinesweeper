@@ -22,6 +22,9 @@
   // --------------------------------------------------------------------------
   // 1. Ambient Scene Injection (3D Perspective Grid, Orbs, Canvas, Vignette)
   // --------------------------------------------------------------------------
+  const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const isCoarsePointer = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+
   function initAmbientScene() {
     if (document.querySelector('.ambient-scene')) return;
 
@@ -37,7 +40,7 @@
 
     document.body.prepend(scene);
 
-    if (FX.particles) {
+    if (FX.particles && !prefersReducedMotion) {
       initGoldParticles();
     }
   }
@@ -51,8 +54,27 @@
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    let width = (canvas.width = window.innerWidth);
-    let height = (canvas.height = window.innerHeight);
+    let isMobile = window.innerWidth < 768;
+    let dpr = isMobile ? 1 : Math.min(window.devicePixelRatio || 1, 1.25);
+    let width = window.innerWidth;
+    let height = window.innerHeight;
+
+    function syncCanvasSize(force) {
+      const nextWidth = window.innerWidth;
+      const nextHeight = window.innerHeight;
+      isMobile = nextWidth < 768;
+      // Ignore small height changes caused by mobile browser address bars hiding/showing on scroll
+      if (!force && isMobile && nextWidth === width && Math.abs(nextHeight - height) < 100) {
+        return;
+      }
+      dpr = isMobile ? 1 : Math.min(window.devicePixelRatio || 1, 1.25);
+      width = nextWidth;
+      height = nextHeight;
+      canvas.width = Math.round(width * dpr);
+      canvas.height = Math.round(height * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    syncCanvasSize(true);
 
     function getThemePalette() {
       const theme = document.documentElement.dataset.theme || localStorage.getItem('mf_pastel_theme') || 'gold';
@@ -63,6 +85,8 @@
             flag: '#f497b0',
             mine: '#f497b0',
             beacon: '#ffffff',
+            pole: 'rgba(255, 255, 255, 0.5)',
+            hull: 'rgba(12, 20, 36, 0.95)',
             line: 'rgba(244, 151, 176, 0.20)'
           };
         case 'red':
@@ -71,14 +95,18 @@
             flag: '#f87171',
             mine: '#f87171',
             beacon: '#ffffff',
+            pole: 'rgba(255, 255, 255, 0.5)',
+            hull: 'rgba(12, 20, 36, 0.95)',
             line: 'rgba(248, 113, 113, 0.20)'
           };
         case 'white':
           return {
-            dust: ['#3b82f6', '#60a5fa', '#93c5fd', '#bfdbfe', '#818cf8'],
-            flag: '#3b82f6',
-            mine: '#60a5fa',
+            dust: ['#2563eb', '#3b82f6', '#60a5fa', '#818cf8', '#0ea5e9'],
+            flag: '#2563eb',
+            mine: '#3b82f6',
             beacon: '#1d4ed8',
+            pole: 'rgba(30, 41, 59, 0.65)',
+            hull: 'rgba(241, 245, 249, 0.92)',
             line: 'rgba(59, 130, 246, 0.25)'
           };
         case 'green':
@@ -87,6 +115,8 @@
             flag: '#86efac',
             mine: '#86efac',
             beacon: '#ffffff',
+            pole: 'rgba(255, 255, 255, 0.5)',
+            hull: 'rgba(12, 20, 36, 0.95)',
             line: 'rgba(134, 239, 172, 0.20)'
           };
         case 'blue':
@@ -95,6 +125,8 @@
             flag: '#7dd3fc',
             mine: '#7dd3fc',
             beacon: '#ffffff',
+            pole: 'rgba(255, 255, 255, 0.5)',
+            hull: 'rgba(12, 20, 36, 0.95)',
             line: 'rgba(125, 211, 252, 0.20)'
           };
         case 'purple':
@@ -103,6 +135,8 @@
             flag: '#c084fc',
             mine: '#c084fc',
             beacon: '#ffffff',
+            pole: 'rgba(255, 255, 255, 0.5)',
+            hull: 'rgba(12, 20, 36, 0.95)',
             line: 'rgba(192, 132, 252, 0.20)'
           };
         case 'gold':
@@ -112,6 +146,8 @@
             flag: '#ffc83d',
             mine: '#ffc83d',
             beacon: '#ffe08a',
+            pole: 'rgba(255, 255, 255, 0.5)',
+            hull: 'rgba(12, 20, 36, 0.95)',
             line: 'rgba(255, 200, 61, 0.20)'
           };
       }
@@ -119,11 +155,10 @@
 
     let palette = getThemePalette();
 
-    const isMobile = width < 768;
     const isAuthPage = document.body.classList.contains('page-auth') || window.location.pathname === '/' || window.location.pathname.endsWith('/login');
-    const flagCount = isAuthPage ? (isMobile ? 3 : 5) : (isMobile ? 2 : 3);
-    const mineCount = isAuthPage ? (isMobile ? 2 : 4) : (isMobile ? 2 : 3);
-    const orbCount = isMobile ? 12 : 22;
+    const flagCount = isAuthPage ? (isMobile ? 3 : 4) : (isMobile ? 2 : 3);
+    const mineCount = isAuthPage ? (isMobile ? 2 : 3) : (isMobile ? 1 : 2);
+    const orbCount = isAuthPage ? (isMobile ? 16 : 28) : (isMobile ? 12 : 20);
 
     const particles = [];
 
@@ -169,14 +204,14 @@
 
     // 3. Ambient Dust Particles & Glowing Embers
     for (let i = 0; i < orbCount; i++) {
-      const isEmber = Math.random() < 0.25;
-      const r = isEmber ? (Math.random() * 1.8 + 2.0) : (Math.random() * 1.5 + 0.6);
+      const isEmber = Math.random() < 0.3;
+      const r = isEmber ? (Math.random() * 1.8 + 2.2) : (Math.random() * 1.4 + 1.0);
       particles.push({
         kind: 'orb',
         x: Math.random() * width,
         y: Math.random() * height,
         r: r,
-        baseAlpha: isEmber ? (Math.random() * 0.4 + 0.4) : (Math.random() * 0.45 + 0.2),
+        baseAlpha: isEmber ? (Math.random() * 0.35 + 0.5) : (Math.random() * 0.4 + 0.3),
         speedY: -(Math.random() * 0.65 + 0.25),
         speedX: (Math.random() - 0.5) * 0.35,
         pulse: Math.random() * Math.PI * 2,
@@ -197,37 +232,11 @@
       }
     });
 
-    let targetX = 0;
-    let targetY = 0;
-    let currentX = 0;
-    let currentY = 0;
-
+    let resizeTimer = null;
     window.addEventListener('resize', () => {
-      width = canvas.width = window.innerWidth;
-      height = canvas.height = window.innerHeight;
+      if (resizeTimer) clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => syncCanvasSize(false), 140);
     }, { passive: true });
-
-    let rawMouseX = -1000;
-    let rawMouseY = -1000;
-    let hasMouse = false;
-
-    window.addEventListener('mousemove', (e) => {
-      hasMouse = true;
-      rawMouseX = e.clientX;
-      rawMouseY = e.clientY;
-      if (FX.parallax) {
-        const normX = (e.clientX / width - 0.5) * 2;
-        const normY = (e.clientY / height - 0.5) * 2;
-        targetX = normX * 12;
-        targetY = normY * 12;
-      }
-    }, { passive: true });
-
-    window.addEventListener('mouseleave', () => {
-      hasMouse = false;
-      targetX = 0;
-      targetY = 0;
-    });
 
     function drawFlagParticle(ctx, p, alpha) {
       ctx.save();
@@ -237,7 +246,7 @@
       ctx.globalAlpha = Math.min(0.85, alpha);
 
       // Flagpole
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
+      ctx.strokeStyle = palette.pole || 'rgba(255, 255, 255, 0.45)';
       ctx.lineWidth = 1.4;
       ctx.lineCap = 'round';
       ctx.beginPath();
@@ -284,7 +293,7 @@
       // Hull orb
       ctx.beginPath();
       ctx.arc(0, 0, 5, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(12, 20, 36, 0.95)';
+      ctx.fillStyle = palette.hull || 'rgba(12, 20, 36, 0.95)';
       ctx.strokeStyle = palette.mine;
       ctx.lineWidth = 1.2;
       ctx.fill();
@@ -304,15 +313,15 @@
     let isRunning = true;
     let lastTime = performance.now();
     let lastRenderTime = 0;
-    const TARGET_INTERVAL = 1000 / 60; // 60 FPS cap (prevents 240Hz monitor overload)
 
     function render(currentTime) {
       if (!isRunning) return;
 
       const now = typeof currentTime === 'number' ? currentTime : performance.now();
+      const targetInterval = isMobile ? (1000 / 24) : (1000 / 30);
 
-      // Throttle rendering on high-refresh screens (144Hz/240Hz) to save GPU fill rate
-      if (now - lastRenderTime < TARGET_INTERVAL - 1.5) {
+      // Cap background canvas refresh rate (24fps mobile / 30fps desktop) to cut GPU/CPU overhead
+      if (now - lastRenderTime < targetInterval - 1.5) {
         animId = requestAnimationFrame(render);
         return;
       }
@@ -422,10 +431,10 @@
   // 4. Tactile Ripple on Buttons
   // --------------------------------------------------------------------------
   function initButtonRipples() {
-    if (!FX.ripple) return;
+    if (!FX.ripple || isCoarsePointer || prefersReducedMotion) return;
 
     document.addEventListener('pointerdown', (e) => {
-      const btn = e.target.closest('.btn');
+      const btn = e.target.closest('.btn, .play, .tactical-restart-btn, .tactical-hint-btn, .touch-tool-btn');
       if (!btn || btn.disabled) return;
 
       const rect = btn.getBoundingClientRect();
@@ -433,8 +442,7 @@
       const diameter = Math.max(rect.width, rect.height);
       const radius = diameter / 2;
 
-      // Ensure button contains absolute child properly without layout shift
-      if (getComputedStyle(btn).position === 'static') {
+      if (!btn.style.position) {
         btn.style.position = 'relative';
       }
       btn.style.overflow = 'hidden';
@@ -449,7 +457,7 @@
       circle.style.transform = 'scale(0)';
       circle.style.opacity = '0.5';
       circle.style.background = 'radial-gradient(circle, rgba(255, 255, 255, 0.7) 0%, rgba(255, 255, 255, 0) 70%)';
-      circle.style.transition = 'transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.5s ease-out';
+      circle.style.transition = 'transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.45s ease-out';
       circle.style.zIndex = '1';
 
       const existing = btn.querySelector('.ripple-wave');
@@ -458,7 +466,7 @@
       btn.appendChild(circle);
 
       requestAnimationFrame(() => {
-        circle.style.transform = 'scale(2.4)';
+        circle.style.transform = 'scale(2.2)';
         circle.style.opacity = '0';
       });
 
@@ -466,33 +474,18 @@
         if (circle.parentNode === btn) {
           circle.remove();
         }
-      }, 550);
-    });
+      }, 480);
+    }, { passive: true });
   }
 
   // --------------------------------------------------------------------------
-  // 5. Game Progress Bar & State Mutation Observer
+  // 5. Game State Observer (Progress bar updates in game.js renderCounters())
   // --------------------------------------------------------------------------
   function initGameObservers() {
     const board = document.getElementById('board');
-    const progressBar = document.getElementById('game-progress-fill');
     const statusBtn = document.getElementById('status');
     const shockwave = document.getElementById('shockwave-ring');
     const confettiCanvas = document.getElementById('confetti-canvas');
-
-    if (board && progressBar) {
-      const updateProgress = () => {
-        const cells = board.querySelectorAll('.cell');
-        if (!cells.length) return;
-        const total = cells.length;
-        const revealed = board.querySelectorAll('.cell.is-open').length;
-        const percent = Math.min(100, Math.round((revealed / total) * 100));
-        progressBar.style.width = `${percent}%`;
-      };
-
-      const boardObserver = new MutationObserver(updateProgress);
-      boardObserver.observe(board, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
-    }
 
     if (statusBtn) {
       let lastState = statusBtn.dataset.state;
@@ -501,6 +494,12 @@
         const state = statusBtn.dataset.state;
         if (state === lastState) return;
         lastState = state;
+
+        if (state === 'ready') {
+          stopBoardFx(confettiCanvas);
+          if (shockwave) shockwave.classList.remove('is-active');
+          return;
+        }
 
         if (state === 'lost') {
           const boardWrap = document.getElementById('board-wrap');
@@ -518,25 +517,33 @@
           // 2. Exact Centered Shockwave Blast & Sparks
           if (shockwave && boardWrap) {
             const wrapRect = boardWrap.getBoundingClientRect();
-            let originX = wrapRect.width / 2;
-            let originY = wrapRect.height / 2;
+            let ringX = wrapRect.width / 2;
+            let ringY = wrapRect.height / 2;
 
             if (explodedCell) {
               const cellRect = explodedCell.getBoundingClientRect();
-              originX = (cellRect.left + cellRect.width / 2) - wrapRect.left;
-              originY = (cellRect.top + cellRect.height / 2) - wrapRect.top;
+              ringX = (cellRect.left + cellRect.width / 2) - wrapRect.left + boardWrap.scrollLeft;
+              ringY = (cellRect.top + cellRect.height / 2) - wrapRect.top + boardWrap.scrollTop;
             }
 
-            shockwave.style.left = `${originX}px`;
-            shockwave.style.top = `${originY}px`;
+            shockwave.style.left = `${ringX}px`;
+            shockwave.style.top = `${ringY}px`;
             shockwave.classList.remove('is-active');
             void shockwave.offsetWidth;
             shockwave.classList.add('is-active');
             setTimeout(() => shockwave.classList.remove('is-active'), 800);
 
-            // 3. Fire Sparks & Shrapnel Blast Canvas
+            // 3. Fire Sparks & Shrapnel Blast Canvas (aligned to confettiCanvas rect)
             if (confettiCanvas) {
-              triggerExplosionBurst(confettiCanvas, originX, originY);
+              const canvasRect = confettiCanvas.getBoundingClientRect();
+              let sparkX = canvasRect.width / 2;
+              let sparkY = canvasRect.height / 2;
+              if (explodedCell) {
+                const cellRect = explodedCell.getBoundingClientRect();
+                sparkX = (cellRect.left + cellRect.width / 2) - canvasRect.left;
+                sparkY = (cellRect.top + cellRect.height / 2) - canvasRect.top;
+              }
+              triggerExplosionBurst(confettiCanvas, sparkX, sparkY);
             }
           }
         } else if (state === 'won') {
@@ -551,37 +558,61 @@
     }
   }
 
+  let boardFxAnimId = null;
+
+  function stopBoardFx(canvas) {
+    if (boardFxAnimId != null) {
+      cancelAnimationFrame(boardFxAnimId);
+      boardFxAnimId = null;
+    }
+    if (canvas) {
+      const ctx = canvas.getContext('2d');
+      if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+  }
+
+  function prepareBoardCanvas(canvas) {
+    stopBoardFx(canvas);
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+    const isSmallScreen = window.innerWidth < 768;
+    const dpr = isSmallScreen ? 1 : Math.min(window.devicePixelRatio || 1, 1.25);
+    const width = canvas.offsetWidth || canvas.parentElement?.clientWidth || 300;
+    const height = canvas.offsetHeight || canvas.parentElement?.clientHeight || 300;
+    canvas.width = Math.round(width * dpr);
+    canvas.height = Math.round(height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return { ctx, width, height, isSmallScreen };
+  }
+
   // --------------------------------------------------------------------------
-  // 6. Mine Explosion Shrapnel & Spark Fireworks Engine (Canvas 2D - Compact Micro Burst)
+  // 6. Mine Explosion Shrapnel & Spark Fireworks Engine (Canvas 2D)
   // --------------------------------------------------------------------------
   function triggerExplosionBurst(canvas, originX, originY) {
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    const width = (canvas.width = canvas.offsetWidth);
-    const height = (canvas.height = canvas.offsetHeight);
+    const setup = prepareBoardCanvas(canvas);
+    if (!setup) return;
+    const { ctx, width, height, isSmallScreen } = setup;
 
     const sparks = [];
     const colors = ['#ff4d5e', '#ff7830', '#ffc83d', '#ffe08a', '#ffffff'];
+    const count = isSmallScreen ? 16 : 22;
 
-    // Compact localized micro-burst: 12 sparks, tight radius, fast decay, zero lag
-    for (let i = 0; i < 12; i++) {
-      const angle = Math.random() * Math.PI * 2;
-      const speed = Math.random() * 4.5 + 1.5;
+    for (let i = 0; i < count; i++) {
+      const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.25;
+      const speed = Math.random() * 5.2 + 1.8;
       sparks.push({
         x: originX,
         y: originY,
         vx: Math.cos(angle) * speed,
         vy: Math.sin(angle) * speed,
-        size: Math.random() * 1.8 + 1.2,
+        size: Math.random() * 2.2 + 1.6,
         color: colors[Math.floor(Math.random() * colors.length)],
         alpha: 1,
-        decay: Math.random() * 0.05 + 0.04,
-        gravity: 0.12,
+        decay: Math.random() * 0.032 + 0.028,
+        gravity: 0.14,
       });
     }
 
-    let animId = null;
     let lastTime = performance.now();
 
     function update(currentTime) {
@@ -595,8 +626,8 @@
 
       for (let i = 0; i < sparks.length; i++) {
         const s = sparks[i];
-        s.vx *= Math.pow(0.92, dt);
-        s.vy *= Math.pow(0.92, dt);
+        s.vx *= Math.pow(0.93, dt);
+        s.vy *= Math.pow(0.93, dt);
         s.vy += s.gravity * dt;
         s.x += s.vx * dt;
         s.y += s.vy * dt;
@@ -613,46 +644,44 @@
       }
 
       if (alive) {
-        animId = requestAnimationFrame(update);
+        boardFxAnimId = requestAnimationFrame(update);
       } else {
         ctx.clearRect(0, 0, width, height);
-        cancelAnimationFrame(animId);
+        boardFxAnimId = null;
       }
     }
 
-    animId = requestAnimationFrame(update);
+    boardFxAnimId = requestAnimationFrame(update);
   }
 
   // --------------------------------------------------------------------------
   // 7. Victory Confetti Fireworks Engine (Canvas 2D)
   // --------------------------------------------------------------------------
   function triggerConfetti(canvas) {
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    const width = (canvas.width = canvas.offsetWidth);
-    const height = (canvas.height = canvas.offsetHeight);
+    const setup = prepareBoardCanvas(canvas);
+    if (!setup) return;
+    const { ctx, width, height, isSmallScreen } = setup;
 
     const confettiPieces = [];
-    const colors = ['#ffc83d', '#ffe08a', '#2ee59d', '#4da3ff', '#ffffff'];
+    const colors = ['#ffc83d', '#ffe08a', '#2ee59d', '#4da3ff', '#f472b6', '#ffffff'];
+    const count = isSmallScreen ? 28 : 40;
 
-    for (let i = 0; i < 40; i++) {
+    for (let i = 0; i < count; i++) {
       confettiPieces.push({
         x: width / 2,
-        y: height / 2,
+        y: height * 0.45,
         vx: (Math.random() - 0.5) * 16,
         vy: (Math.random() - 0.8) * 18,
         size: Math.random() * 8 + 4,
         color: colors[Math.floor(Math.random() * colors.length)],
         rotation: Math.random() * 360,
         rotationSpeed: (Math.random() - 0.5) * 10,
-        gravity: 0.38,
+        gravity: 0.36,
         drag: 0.96,
         alpha: 1,
       });
     }
 
-    let animId = null;
     let lastTime = performance.now();
 
     function update(currentTime) {
@@ -660,8 +689,6 @@
       const elapsed = now - lastTime;
       lastTime = now;
 
-      // Delta time normalized to 60fps (16.667ms)
-      // Clamped between 0.1 and 3.0 to handle high refresh rates (up to 240Hz+) and tab pauses
       const dt = Math.min(Math.max(elapsed / (1000 / 60), 0.1), 3.0);
 
       ctx.clearRect(0, 0, width, height);
@@ -676,7 +703,7 @@
         p.x += p.vx * dt;
         p.y += p.vy * dt;
         p.rotation += p.rotationSpeed * dt;
-        p.alpha -= 0.012 * dt;
+        p.alpha -= 0.011 * dt;
 
         if (p.alpha > 0) {
           alive = true;
@@ -691,14 +718,14 @@
       }
 
       if (alive) {
-        animId = requestAnimationFrame(update);
+        boardFxAnimId = requestAnimationFrame(update);
       } else {
         ctx.clearRect(0, 0, width, height);
-        cancelAnimationFrame(animId);
+        boardFxAnimId = null;
       }
     }
 
-    animId = requestAnimationFrame(update);
+    boardFxAnimId = requestAnimationFrame(update);
   }
 
   // --------------------------------------------------------------------------

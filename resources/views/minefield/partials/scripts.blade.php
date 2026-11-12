@@ -24,10 +24,12 @@
   window.MF_GAME_OPTIONS = JSON.parse(bootstrapData.gameOptions);
 </script>
 @php
-  $jsFile = public_path('minefield/js/game.js');
-  $mfVer = file_exists($jsFile) ? (string) filemtime($jsFile) : '2.7.3';
+  $verJs = function (string $relPath): string {
+    $full = public_path($relPath);
+    return file_exists($full) ? (string) filemtime($full) : '2.7.4';
+  };
 @endphp
-<script src="{{ $basePath }}/minefield/js/config.js?v={{ $mfVer }}"></script>
+<script src="{{ $basePath }}/minefield/js/config.js?v={{ $verJs('minefield/js/config.js') }}"></script>
 <script>
   window.MF_CONFIG = Object.assign(window.MF_CONFIG || {}, {
     API_BASE: bootstrapData.apiBase,
@@ -41,9 +43,9 @@
     }
   });
 </script>
-<script src="{{ $basePath }}/minefield/js/engine.js?v={{ $mfVer }}"></script>
-<script src="{{ $basePath }}/minefield/js/skins.js?v={{ $mfVer }}"></script>
-<script src="{{ $basePath }}/minefield/js/api.js?v={{ $mfVer }}"></script>
-<script src="{{ $basePath }}/minefield/js/ui.js?v={{ $mfVer }}"></script>
-<script src="{{ $basePath }}/minefield/js/{{ $pageScript }}?v={{ $mfVer }}"></script>
-<script src="{{ $basePath }}/minefield/js/ui-motion.js?v={{ $mfVer }}"></script>
+<script src="{{ $basePath }}/minefield/js/engine.js?v={{ $verJs('minefield/js/engine.js') }}"></script>
+<script src="{{ $basePath }}/minefield/js/skins.js?v={{ $verJs('minefield/js/skins.js') }}"></script>
+<script src="{{ $basePath }}/minefield/js/api.js?v={{ $verJs('minefield/js/api.js') }}"></script>
+<script src="{{ $basePath }}/minefield/js/ui.js?v={{ $verJs('minefield/js/ui.js') }}"></script>
+<script src="{{ $basePath }}/minefield/js/{{ $pageScript }}?v={{ $verJs('minefield/js/' . $pageScript) }}"></script>
+<script src="{{ $basePath }}/minefield/js/ui-motion.js?v={{ $verJs('minefield/js/ui-motion.js') }}"></script>

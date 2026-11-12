@@ -90,11 +90,30 @@
 
           <!-- Board Area -->
           <div class="board-frame">
+            <div class="game-progress" aria-hidden="true">
+              <div class="game-progress__fill" id="game-progress-fill"></div>
+            </div>
+
+            <div class="touch-tool-bar" id="touch-tool-bar" role="group" aria-label="Chế độ chạm trên bàn chơi">
+              <div class="touch-tool-seg" id="touch-tool-seg">
+                <button type="button" class="touch-tool-btn is-active" data-tool="reveal" aria-pressed="true">
+                  <span aria-hidden="true">⛏️</span>
+                  <span>Mở ô</span>
+                </button>
+                <button type="button" class="touch-tool-btn" data-tool="flag" aria-pressed="false">
+                  <span aria-hidden="true">🚩</span>
+                  <span>Cắm cờ</span>
+                </button>
+              </div>
+              <span class="touch-tool-hint" id="touch-tool-hint">Chạm để mở ô · Nhấn giữ 0.4s để cắm/gỡ cờ</span>
+            </div>
+
             <div class="board-wrap" id="board-wrap">
               <div class="board" id="board"></div>
               <div class="shockwave-ring" id="shockwave-ring" aria-hidden="true"></div>
-              <canvas class="confetti-canvas" id="confetti-canvas" aria-hidden="true"></canvas>
             </div>
+
+            <canvas class="confetti-canvas" id="confetti-canvas" aria-hidden="true"></canvas>
 
             <div class="result" id="result" role="status" hidden></div>
 
@@ -122,16 +141,19 @@
           </div>
 
           <!-- Card 2: Chơi thật gọn (Controls guide) -->
-          <div class="tactical-card guide-card">
-            <h2 class="tactical-card__title">Chơi thật gọn.</h2>
+          <div class="tactical-card guide-card" id="guide-card">
+            <div class="guide-card__head">
+              <h2 class="tactical-card__title">Chơi thật gọn.</h2>
+              <span class="guide-device-badge" id="guide-device-badge">PC · Chuột</span>
+            </div>
             <ul class="guide-list">
               <li class="guide-item">
                 <span class="guide-icon-pill" aria-hidden="true">
                   <svg viewBox="0 0 24 24" width="16" height="16"><path d="m4 4 7 17 3-6 6-3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
                 </span>
                 <div class="guide-content">
-                  <strong>Chuột trái</strong>
-                  <p>Mở một ô an toàn.</p>
+                  <strong id="guide-reveal-title">Chuột trái</strong>
+                  <p id="guide-reveal-desc">Mở một ô an toàn. Bấm vào ô số đã đủ cờ để mở nhanh xung quanh.</p>
                 </div>
               </li>
               <li class="guide-item">
@@ -139,8 +161,8 @@
                   <svg viewBox="0 0 24 24" width="16" height="16"><path d="M5 21V3l10 5-10 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 </span>
                 <div class="guide-content">
-                  <strong>Chuột phải</strong>
-                  <p>Cắm cờ hoặc bỏ cờ đánh dấu.</p>
+                  <strong id="guide-flag-title">Chuột phải (hoặc phím F)</strong>
+                  <p id="guide-flag-desc">Cắm cờ hoặc bỏ cờ đánh dấu.</p>
                 </div>
               </li>
               <li class="guide-item">
@@ -148,8 +170,8 @@
                   <svg viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="2 2"/></svg>
                 </span>
                 <div class="guide-content">
-                  <strong>Gợi ý (Phím H)</strong>
-                  <p>Dùng 100 xu để dò radar và cắm cờ 1 quả mìn.</p>
+                  <strong id="guide-hint-title">Gợi ý (Phím H)</strong>
+                  <p id="guide-hint-desc">Dùng 100 xu để dò radar và cắm cờ 1 quả mìn.</p>
                 </div>
               </li>
               <li class="guide-item">

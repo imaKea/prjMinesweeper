@@ -24,8 +24,11 @@ Minefield là dự án đồ án chuyên ngành phát triển trò chơi Dò Mì
   - Tiêu tốn **100 xu** để nhận 1 gợi ý mìn chính xác (giao dịch trừ xu được xác thực an toàn qua `POST /api/games/{token}/hint`).
   - Engine JS phía client (`applyHint()`) tự động dò tìm mìn ở vùng biên tiếp giáp ô số đã mở (frontier) và cắm cờ đánh dấu ngay lập tức (Phím tắt: `H`).
 - **Cửa hàng Skin (Shop):**
-  - Khám phá 14 mẫu trang bị: 7 skin bàn cờ và 7 skin lá cờ (giá từ 0 đến 750 xu).
-  - Giao dịch an toàn qua `DB::transaction()`, tự động trang bị ngay khi mua.
+  - Khám phá **26 mẫu trang bị**: **13 skin bàn cờ** (giá từ 0 đến 900 xu) và **13 skin lá cờ SVG** (giá từ 0 đến 700 xu).
+  - Giao dịch an toàn qua `DB::transaction()`, tự động trang bị ngay khi mua và hiển thị đồng bộ trên bàn chơi lẫn bản xem trước mini.
+- **Đa nền tảng & Tùy biến giao diện (PC / Tablet / Mobile):**
+  - Giao diện tự động co giãn theo màn hình (desktop 3 cột, tablet/điện thoại đưa HUD & bàn cờ lên đầu), hỗ trợ thanh chuyển nhanh **Mở ô / Cắm cờ** (`touch-tool-bar`) cùng hướng dẫn thao tác riêng cho thiết bị cảm ứng.
+  - Hỗ trợ **7 chủ đề màu Pastel** (Vàng Kim, Hồng Phấn, Xanh Lá, Xanh Lam, Xanh Tím, Đỏ San Hô, Trắng Ngọc) và hiệu ứng hạt/confetti/shockwave tối ưu hiệu năng.
 
 ### 1.3. Quản trị viên (Admin)
 - **Cổng đăng nhập chuyên biệt:** Đường dẫn riêng `/admin/login`, bảo vệ tài khoản quản trị.
@@ -37,7 +40,9 @@ Minefield là dự án đồ án chuyên ngành phát triển trò chơi Dò Mì
 ### 1.4. Hướng dẫn cách chơi & Thao tác điều khiển
 - **Chuột trái / Chạm (Desktop & Mobile):** Mở ô an toàn (lần click đầu tiên luôn an toàn, không bao giờ trúng mìn). Ô trống `0` sẽ tự động lan rộng (flood fill).
 - **Chord click:** Click chuột trái / chạm vào **ô số đã mở** khi xung quanh đã cắm đủ số cờ tương ứng để mở nhanh các ô còn lại.
-- **Chuột phải / Nhấn giữ (Mobile ~380ms):** Cắm hoặc bỏ cờ đánh dấu vị trí nghi có mìn (trên desktop hỗ trợ thêm phím `F` tại ô đang trỏ).
+- **Chuột phải / Chế độ Cắm cờ (Mobile):**
+  - Trên **PC**: Chuột phải hoặc nhấn phím `F` tại ô đang trỏ để cắm/gỡ cờ.
+  - Trên **Điện thoại / Tablet**: Nhấn giữ ô (~380ms) hoặc bật công tắc **🚩 Cắm cờ** ngay phía trên bàn chơi để chạm 1 lần cắm/gỡ cờ nhanh.
 - **Phím tắt nhanh:** `H` dùng Gợi ý mìn (100 xu), `R` chơi lại ván mới.
 - **3 cấp độ mặc định trong CSDL:** Dễ (`9×9 / 10 mìn`), Trung bình (`12×12 / 22 mìn`), Khó (`16×16 / 40 mìn`).
 
@@ -45,14 +50,12 @@ Minefield là dự án đồ án chuyên ngành phát triển trò chơi Dò Mì
 
 ## 2. CÔNG NGHỆ VÀ PHIÊN BẢN THỰC TẾ
 
-- **Ngôn ngữ Backend:** PHP `^8.2` (Kiểm thử thực tế: PHP `8.2.12`)
-- **Framework:** Laravel Framework `12.70.1`
-- **Cơ sở dữ liệu:** MySQL (kết nối qua PDO MySQL, hỗ trợ khóa ngoại cascade và kiểm tra ràng buộc CHECK)
-- **Kiểm thử Backend:** PHPUnit `11.5.50` (chạy trên bộ nhớ in-memory SQLite)
-- **Môi trường JavaScript:** Node.js `v24.22.1`
-- **Frontend & Giao diện:** 
-  - Giao diện xây dựng bằng Blade Template, HTML5, CSS3 tùy biến cao cấp (`style.css`, `ui-theme.css`) với hơn 4.500 dòng mã giao diện, hệ thống theme pastel và hiệu ứng đồ họa `ui-motion.js`.
-  - *Lưu ý về Asset Pipeline:* Ứng dụng nạp trực tiếp tài nguyên tĩnh từ thư mục `public/minefield/`, **không phụ thuộc** vào Vite build bundling tại thời điểm vận hành.
+- **Ngôn ngữ Backend:** PHP `^8.2` (Container deploy dùng `php:8.3-apache`)
+- **Framework:** Laravel Framework `^12.0`
+- **Cơ sở dữ liệu:** MySQL / TiDB Cloud Serverless (kết nối qua PDO MySQL, hỗ trợ SSL `MYSQL_ATTR_SSL_CA` và khóa ngoại cascade)
+- **Kiểm thử Backend:** PHPUnit `^11.5.50` (chạy kiểm thử chức năng bằng SQLite in-memory)
+- **Môi trường Frontend & Build:** Node.js (`v20+` trong Docker), Vite `^7.0.7`, Tailwind CSS `^4.0.0`
+- **Giao diện Gameplay:** Blade Template, HTML5, CSS3 tùy biến (`public/minefield/css/style.css`, `ui-theme.css`) và Vanilla JavaScript (`public/minefield/js/*.js`) nạp trực tiếp kèm cache-busting riêng từng file theo `filemtime()`.
 
 ---
 
@@ -64,8 +67,8 @@ prjMinesweeper/
 │   ├── Http/
 │   │   ├── Controllers/
 │   │   │   ├── MinefieldAdminController.php   # Quản trị CMS, thống kê, user, record, cộng xu
-│   │   │   ├── MinefieldAuthController.php    # Xác thực: signup, login, guest, logout
-│   │   │   ├── MinefieldGameController.php    # Quản lý phiên ván đấu, xác thực thời gian & DB: start, hint (trừ xu), win, loss, leaderboard
+│   │   │   ├── MinefieldAuthController.php    # Xác thực: signup, login, adminLogin, guest, logout
+│   │   │   ├── MinefieldGameController.php    # Phiên ván đấu, chống gian lận Timer, hint, win/loss, leaderboard
 │   │   │   └── MinefieldShopController.php    # Cửa hàng skin: catalog, buy, equip
 │   │   └── Middleware/
 │   │       ├── EnsureAccountIsActive.php      # Ngăn chặn tài khoản bị khóa thao tác
@@ -75,20 +78,24 @@ prjMinesweeper/
 │   │   ├── Game.php, Record.php               # Quản lý ván đấu và kỷ lục leaderboard
 │   │   └── User.php, UserSkin.php             # Tài khoản người dùng và skin sở hữu
 │   └── Services/
-│       └── SkinCatalog.php                    # Bảng định nghĩa 14 skin, tính thưởng xu & speed bonus
+│       └── SkinCatalog.php                    # Bảng định nghĩa 26 skin (13 bàn cờ + 13 cờ), tính xu & speed bonus
 ├── database/
-│   ├── migrations/                            # 7 migration CSDL (users, games, records, shop...)
+│   ├── migrations/                            # Các migration CSDL (users, cache, jobs, minefield, user_skins...)
 │   └── seeders/
-│       ├── AdminUserSeeder.php                # Khởi tạo tài khoản admin bảo mật
+│       ├── AdminUserSeeder.php                # Khởi tạo tài khoản admin bảo mật từ biến môi trường
+│       ├── DatabaseSeeder.php                 # Nạp dữ liệu khởi tạo mặc định
 │       └── MinefieldSeeder.php                # Nạp 3 chế độ (classic/plus/corner) & 3 độ khó (easy/medium/hard)
 ├── public/minefield/
-│   ├── css/                                   # style.css, ui-theme.css (theme pastel, hiệu ứng hạt bụi)
-│   └── js/                                    # engine.js, game.js, api.js, ui.js, ui-motion.js, shop.js, admin.js
-├── resources/views/minefield/                 # Blade views: login, modes, game, shop, admin
+│   ├── css/                                   # style.css, ui-theme.css (theme pastel, responsive mobile/tablet/PC, 13 skin)
+│   └── js/                                    # engine.js, game.js, skins.js, shop.js, api.js, ui.js, ui-motion.js, admin.js...
+├── resources/views/minefield/                 # Blade views: login, admin-login, modes, game, shop, admin, partials/
 ├── routes/web.php                             # Định tuyến Web và RESTful API
-└── tests/
-    ├── Feature/                               # MinefieldFlowTest.php, ShopAndCurrencyTest.php
-    └── js/engine.test.cjs                     # Kiểm thử thuật toán láng giềng và luật mìn (CommonJS)
+├── tests/
+│   ├── Feature/                               # AntiCheatAndTimerTest.php, MinefieldFlowTest.php, ShopAndCurrencyTest.php
+│   ├── Unit/                                  # ExampleTest.php
+│   └── js/engine.test.cjs                     # Kiểm thử thuật toán láng giềng và luật mìn (CommonJS)
+├── Dockerfile                                 # Multi-stage build (Node 20 Vite build + PHP 8.3 Apache)
+└── docker-entrypoint.sh                       # Tự động migrate/seed khi khởi động container
 ```
 
 ---
@@ -152,13 +159,13 @@ php artisan view:cache
 - Lệnh `npm run build` thực thi `vite build` và xuất asset đã biên dịch ra thư mục `public/build/`.
 - Tài nguyên trò chơi trong `public/minefield/` được nạp thông qua base path động (`request()->getBaseUrl()`), tương thích cả khi chạy ở root domain (`/`) hoặc thư mục con (subpath).
 
-### 4.4. Lưu ý Deploy Production (Laravel + MySQL vs Nền tảng Static)
-> **Quan trọng:** Đây là ứng dụng full-stack **Laravel 12 (PHP 8.2) + MySQL/SQLite**, không phải SPA tĩnh thuần.
-- **Khuyến nghị Deploy chính thức:** Dùng hạ tầng hỗ trợ PHP 8.2 + MySQL như VPS (Nginx/Apache + PHP-FPM), Hosting cPanel (trỏ DocumentRoot vào `public/`), Railway, Render (Docker PHP) hoặc Laravel Forge/Cloud. Thiết lập `APP_ENV=production`, `APP_DEBUG=false`, `APP_KEY` mới (`php artisan key:generate`) và `APP_URL` trỏ đúng domain HTTPS.
-- **Vercel / Netlify / GitHub Pages:**
-  - **GitHub Pages** chỉ phục vụ file tĩnh, **không chạy được PHP/Laravel & MySQL**.
-  - **Netlify** là nền tảng static/Node functions, không có PHP runtime gốc để chạy trực tiếp toàn bộ ứng dụng Laravel web + DB.
-  - **Vercel** chỉ hỗ trợ chạy Laravel thông qua serverless PHP runtime cộng đồng (`vercel-php`) kèm cấu hình `vercel.json` + CSDL MySQL/PostgreSQL external (cloud DB) chứ không hỗ trợ preset Vite static thông thường.
+### 4.4. Deploy Cloud với Docker (Render + TiDB Cloud Serverless)
+Project đã tích hợp sẵn [Dockerfile](Dockerfile) (`node:20-alpine` build asset Vite + `php:8.3-apache`) và [docker-entrypoint.sh](docker-entrypoint.sh) để tự động kiểm tra kết nối DB, chạy `php artisan migrate --force`, nạp dữ liệu mặc định và tạo tài khoản admin khi khởi động container.
+- **Biến môi trường chính trên Cloud:**
+  - `APP_ENV=production`, `APP_DEBUG=false`, `APP_KEY=...`, `APP_URL=https://<your-service>.onrender.com`
+  - Kết nối **TiDB Cloud**: `DB_CONNECTION=mysql`, `DB_PORT=4000`, `MYSQL_ATTR_SSL_CA=/etc/ssl/certs/ca-certificates.crt` (cấu hình trust proxy & force HTTPS đã xử lý trong `bootstrap/app.php` và `AppServiceProvider.php`).
+  - Tài khoản quản trị tự động: `MINEFIELD_ADMIN_USERNAME`, `MINEFIELD_ADMIN_PASSWORD` (tối thiểu 12 ký tự).
+- **Lưu ý nền tảng Static:** Do đây là ứng dụng full-stack **Laravel + MySQL/TiDB**, không chạy trực tiếp được trên GitHub Pages hoặc Netlify static.
 
 ---
 
@@ -201,7 +208,7 @@ php artisan view:cache
 - `GET /api/best-time` — Lấy thành tích tốt nhất của người dùng/chế độ hiện tại
 
 ### 5.5. Cửa hàng Skin APIs
-- `GET /api/shop` — Lấy danh mục 14 skin và số dư xu người chơi
+- `GET /api/shop` — Lấy danh mục 26 skin (13 bàn cờ + 13 cờ) và số dư xu người chơi
 - `POST /api/shop/buy` — Mua skin bằng xu ảo (xử lý `DB::transaction`)
 - `POST /api/shop/equip` — Trang bị skin đã sở hữu
 

@@ -1086,111 +1086,62 @@ Vi du voi nut Play as guest:
   -> login.js chuyen /modes
 
 
-13. DE XUAT BOT MINIMAX + ALPHA-BETA DUOI DANG NUT HINT
-========================================================
+13. THUAT TOAN GOI Y MIN THONG MINH (HINT SYSTEM) VA TRU XU AN TOAN
+===================================================================
 
-Trang thai hien tai:
-  Project chua co nut Hint, chua co bot va chua co file bot.js.
-  Phan nay la thiet ke de xuat de dap ung muc tieu Bot trong phieu dang ky,
-  khong mo ta mot tinh nang da duoc lap trinh.
+Trang thai thuc te:
+  He thong da hoan thien 100% tinh nang Goi y min thong minh (Hint System)
+  theo dung phieu dang ky de tai cua nhom, bao gom ca xu ly Engine JS phia client
+  va xac thuc tru xu an toan phia server qua DB::transaction().
 
-13.1 Vi sao Hint Bot hop voi Minesweeper?
+13.1 Vai tro cua Hint System trong Minesweeper
 
-Nguoi choi bam Hint de nhan goi y, nhung van tu quyet dinh mo o hay cam co.
-Bot khong tu dong choi thay nguoi dung. Cac goi y co the gom:
-  - O an toan chac chan, nen mo.
-  - O chac chan co min, nen cam co.
-  - Chua du thong tin de ket luan; neu phai doan thi goi y o co rui ro thap hon.
+Nguoi choi co the nhan nut Hint tren thanh cong cu hoac nhan phim tat 'H' khi
+gap tinh huong be tac hoac can goi y vi tri min.
+He thong khong tu dong choi ca van thay nguoi dung, ma thuc hien:
+  - Quet va xac dinh mot o chua min chua cam co.
+  - Tu dong cam co (flag) vao vi tri min do ngay lap tuc (0ms).
+  - Phat hieu ung song radar (radar pulse animation) de nguoi choi de dang nhan biet.
+  - Nguoi choi su dung thong tin nay de tiep tuc suy luan cac o xung quanh.
 
-Cach nay phu hop voi Minesweeper hon viec coi game nhu co doi thu co nuoc di.
-Minesweeper la bai toan thong tin an: cac con so gioi han nhung vi tri min co
-the xay ra, va doi khi nguoi choi bat buoc phai doan.
+13.2 Thuat toan quet min vung bien (Frontier Analysis) trong engine.js
 
-13.2 Du lieu Bot duoc phep xem
+Ham applyHint(game) trong public/minefield/js/engine.js hoat dong nhu sau:
+  1. Quet toan bo luoi ban co de tim tat ca cac cell co mine = true va flagged = false.
+  2. Phan loai danh sach min thanh hai tap hop:
+     - Tap hop bien (frontier): gom cac o min co it nhat mot o lanh gieng da duoc mo.
+     - Tap hop min nam sau ben trong (chua co o lan can nao duoc mo).
+  3. Uu tien chon ngau nhien mot o thuoc tap hop frontier. Neu tap hop frontier rong,
+     moi chon ngau nhien tu cac o min con lai.
+  4. Dat flagged = true cho o da chon va cap nhat so luong co cua ban co.
+  5. Tra ve chi so o da duoc cam co de game.js kich hoat hieu ung radar pulse.
 
-Bot chi nhan thong tin cong khai ma nguoi choi nhin thay:
-  - O nao da mo va so min hien tren o do.
-  - O nao dang bi danh co.
-  - O nao chua mo.
-  - Mode hien tai va so min con lai neu game cung cap thong tin nay.
+Nho uu tien vung bien (frontier), goi y mang lai gia tri giai do cao nhat vi giup
+nguoi choi mo khoa tiep tuc luong suy luan tu cac con so da mo.
 
-Khong gui danh sach vi tri min that trong cac cell an cho Bot. Engine hien dang
-giu thong tin noi bo mine trong game.cells; can tao mot ham snapshot rieng chi
-tra ve trang thai cong khai, khong dua truc tiep mang cells noi bo cho Bot.
-Neu Bot doc vi tri min an, no khong con la Bot suy luan ma chi doc dap an.
+13.3 Luong xac thuc va tru xu nguyen tu phia Server
 
-13.3 Vai tro cua suy luan, Minimax va Alpha-Beta
+  Nguoi choi bam nut Hint tren UI (game.blade.php + game.js)
+    -> api.js gui POST /api/games/{token}/hint
+    -> Middleware EnsureActiveGame kiem tra van dau dang dien ra va thuoc session nguoi choi
+    -> MinefieldGameController::hint chay trong DB::transaction():
+       - Kiem tra so du xu cua nguoi choi co >= 100 xu khong.
+       - Neu so du < 100 xu: nem loi HTTP 422 ("Not enough coins for a hint.").
+       - Neu du xu: tru 100 xu cua nguoi choi va commit giao dich.
+    -> Server tra ve JSON { success: true, remaining_coins: ... }
+    -> game.js goi engine.applyHint(state.game)
+    -> Ban co cap nhat co, phat song radar, giam so min tren HUD va tru xu hien thi.
 
-Buoc dau tien la lap rang buoc tu cac o so:
-  - Moi o an chua biet la bien co min (1) hoac an toan (0).
-  - So tren o da mo bang tong so min trong cac neighbor chua mo, sau khi tru
-    cac co da danh dau.
-  - Cac rang buoc duoc ket hop de phat hien o chac chan an toan/min.
+13.4 Kiem thu tu dong cua Hint System
 
-Neu co nhieu cach sap min cung phu hop voi thong tin, Bot co the tim kiem cac
-kha nang do va cham diem cac hanh dong. De giai thich Minimax trong de tai:
-  - MAX dai dien Bot chon hanh dong co diem tot nhat.
-  - MIN dai dien tinh huong bat loi nhat trong nhom cach sap min van phu hop
-    voi cac dau hieu da mo.
-  - Ham diem co the uu tien an toan, dong thoi tinh den gia tri thong tin cua
-    o mo ra (co the giup suy luan them).
-  - Alpha-Beta cat cac nhanh khong the thay doi lua chon tot nhat hien tai.
-
-Day la cach ap dung Minimax theo tinh huong xau nhat cho bai toan co thong tin
-an, khong phai Minimax doi khang co dien nhu co vua. Nen ghi ro cach mo hinh hoa
-MAX/MIN va ham diem trong bao cao; neu giang vien yeu cau mot mo hinh cu the,
-can thong nhat mo ta voi giang vien truoc khi chot bao cao.
-
-13.4 Hai muc do de the hien trong giao dien
-
-De:
-  - Dung cac quy tac suy luan don gian tu cac con so.
-  - Neu tim thay o chac chan an toan/min thi dua ra goi y do.
-  - Neu khong tim thay, thong bao chua du du kien hoac dua ra lua chon co ban.
-
-Kho:
-  - Xet nhieu rang buoc va nhieu cach sap min phu hop hon.
-  - Dung tim kiem Minimax theo tinh huong xau nhat va Alpha-Beta pruning.
-  - Cham diem muc do an toan va gia tri thong tin cua cac nuoc di.
-  - Neu khong co nuoc chac chan an toan, noi ro day la goi y co rui ro, khong
-    dam bao khong trung min.
-
-Hai muc do phai duoc phan biet bang cach tim kiem/thang diem thuc te, khong chi
-doi ten nut hoac chi doi mot chuoi giao dien.
-
-13.5 Luong ky thuat de tich hop vao project
-
-  Nut Hint trong resources/views/minefield/game.blade.php
-    -> game.js bat su kien click
-    -> engine.js tao public snapshot (khong tiet lo vi tri min an)
-    -> bot.js nhan snapshot, mode va cap do De/Kho
-    -> bot.js tra {type, index, confidence, explanation}
-    -> game.js highlight o va hien giai thich
-    -> nguoi choi tu mo o/cam co theo goi y
-
-Bot Hint khong can goi API Laravel neu toan bo suy luan chay tai browser va
-khong can luu lich su goi y. Dieu nay giu bot gan voi client va engine hien co.
-Chi can API neu sau nay muon luu thong ke su dung Hint hoac chay bot phia server.
-
-13.6 Cac buoc phat trien va kiem thu
-
-1. Them public snapshot vao engine.js va test snapshot khong chua vi tri min an.
-2. Viet bot.js doc lap DOM, nhan snapshot va tra hanh dong goi y.
-3. Them nut Hint, lua chon cap do va vung hien thong diep trong game.blade.php.
-4. Noi game.js voi bot.js; highlight o duoc goi y, khong tu dong mo o.
-5. Test cac truong hop:
-     - Bot phat hien dung o an toan/min chac chan.
-     - Bot hoat dong theo offsets cua tung mode.
-     - Bot bao khong du du kien khi khong co suy luan chac chan.
-     - Bot Khong doc duoc thong tin min an.
-     - Muc Kho su dung tim kiem Minimax va Alpha-Beta that su.
-
-Ket luan ve phieu dang ky:
-  Nut Hint Bot co the phu hop voi muc tieu "Cai dat thuat toan thong minh
-  (Minimax ket hop Alpha-Beta Pruning) cho Bot voi it nhat 2 muc do (De, Kho)".
-  Phieu khong yeu cau Bot phai tu dong dieu khien ca van. De bao dam khop ro,
-  can trinh bay trong bao cao rang Hint la giao dien cua Bot; Bot co muc De/Kho;
-  muc Kho ap dung mo hinh Minimax + Alpha-Beta da giai thich o tren.
+  - PHPUnit test (AntiCheatAndTimerTest.php):
+    + Test route /hint yeu cau dung Game Token dang choi.
+    + Test tu choi khi khong du 100 xu (tra 422).
+    + Test tru dung 100 xu khi so du hop le.
+    + Test chan goi /hint khi van dau da ket thuc (won hoac lost).
+  - Node.js test (tests/js/engine.test.cjs):
+    + Test applyHint() uu tien cam co dung vung bien frontier.
+    + Test applyHint() khong gay loi khi khong con o min nao chua cam co.
 
 
 14. CAP NHAT CAC SUA DOI TICH HOP VA GIAO DIEN TIENG ANH
@@ -1275,7 +1226,7 @@ nguoi choi.
     25 tests passed — bao gom Neighbors, Mine placement, Flood-fill,
     Flags & chord, Win/lose, Hint (frontier) va Edge cases/state locks.
 
-Bot Minimax + Alpha-Beta trong muc 13 van la de xuat; thay vao do he thong da tich hop tinh nang Goi y min thong minh (Hint) tren engine.js ket hop tru xu DB an toan.
+He thong tich hop tinh nang Goi y min thong minh (Hint) tren engine.js ket hop tru 100 xu an toan trong DB::transaction tai server theo dung phieu dang ky de tai.
 
 
 15. HE THONG KINH TE XU AO, THUONG TOC DO, HINT VA CUA HANG SKIN (SHOP)
@@ -1340,7 +1291,7 @@ Bot Minimax + Alpha-Beta trong muc 13 van la de xuat; thay vao do he thong da ti
 3. Bang xep hang (Leaderboard): DA CO (records table, loc theo mode/diff, chinh xac den ms).
 4. Quan tri Admin: DA CO (CMS thong ke ty le thang/thua, CRUD user, khoa nick, CRUD record, Give Coins).
 5. Xac thuc nguoi dung: DA CO (signup, login bam mat khau, guest session, throttle 10 lan/phut).
-6. Bot Minimax + Alpha-Beta: CHUA CO (Da chuyen doi thanh tinh nang Goi y min thong minh Hint trong engine.js + tru xu DB tai server).
+6. Thuat toan Goi y min thong minh (Hint System): DA CO (applyHint() tren engine.js, quet min vung bien frontier, tru 100 xu qua DB::transaction).
 7. Khong co Multiplayer va Khong tich hop thanh toan tien that: KHOP 100% voi pham vi cam ket.
 8. Stack cong nghe: KHOP 100% (PHP 8.2/8.3, Laravel 12, MySQL / TiDB Cloud Serverless, Docker php:8.3-apache, JavaScript, PHPUnit 40 tests, Node.js 25 tests).
 

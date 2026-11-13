@@ -237,4 +237,4 @@ node tests/js/engine.test.cjs
 
 - **Không hỗ trợ chơi nhiều người thời gian thực (Multiplayer/Co-op):** Dự án tập trung tối ưu trải nghiệm chơi đơn (Single Player) chất lượng cao và cạnh tranh thành tích gián tiếp qua Bảng xếp hạng.
 - **Không tích hợp thanh toán tiền thật:** Toàn bộ hệ thống giao dịch sử dụng cơ chế **Xu ảo (Coins)** tự kiếm qua kỹ năng chiến thắng trong game.
-- **Thuật toán Bot & Hint:** Thay vì xây dựng Bot Minimax tự chơi (vốn không phù hợp với bản chất game thông tin không hoàn hảo), nhóm đã triển khai **Hệ thống Gợi ý mìn thông minh (Hint System)** kết hợp tìm mìn vùng biên ở client (`engine.js`) và xác thực trừ xu an toàn phía máy chủ Laravel.
+- **Thuật toán Gợi ý mìn thông minh (Hint System):** Nhóm tập trung triển khai **Hệ thống Gợi ý mìn thông minh (Hint System)** theo đúng phiếu đăng ký đề tài, kết hợp thuật toán tìm mìn vùng biên ở client (`engine.js`) và xác thực trừ xu an toàn phía máy chủ Laravel qua `DB::transaction()`.

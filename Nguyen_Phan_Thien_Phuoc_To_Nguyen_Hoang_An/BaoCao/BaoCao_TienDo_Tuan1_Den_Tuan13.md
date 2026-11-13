@@ -40,7 +40,7 @@
 | Tuần | Giai đoạn theo kế hoạch | Kết quả thực tế & Trạng thái | Đánh giá |
 | :---: | :--- | :--- | :---: |
 | **Tuần 1** | Khảo sát bài toán & Nghiên cứu lý thuyết game Dò mìn | Khảo sát luật chơi truyền thống 8 ô, đề xuất 2 biến thể (Dấu cộng 4 ô, Góc chéo 4 ô); lập và nộp Phiếu đăng ký đề tài cho GVHD. | **HOÀN THÀNH (100%)** |
-| **Tuần 2** | Phân tích yêu cầu hệ thống & Thiết kế luồng nghiệp vụ | Đặc tả 3 chế độ × 3 độ khó; chuyển đổi Bot Minimax sang Hint System mìn vùng biên 100 xu; quy chuẩn luồng kinh tế xu và Speed Bonus. | **HOÀN THÀNH (100%)** |
+| **Tuần 2** | Phân tích yêu cầu hệ thống & Thiết kế luồng nghiệp vụ | Đặc tả 3 chế độ × 3 độ khó; thiết kế Thuật toán Gợi ý mìn vùng biên (Hint 100 xu); quy chuẩn luồng kinh tế xu và Speed Bonus. | **HOÀN THÀNH (100%)** |
 | **Tuần 3** | Thiết kế kiến trúc hệ thống & Đặc tả RESTful API | Thiết lập mô hình Client Engine (JS thuần 0ms) – Server Authority (Laravel 12); phân quyền Guest/User/Admin; thiết kế tài liệu API endpoints. | **HOÀN THÀNH (100%)** |
 | **Tuần 4** | Thiết kế Cơ sở dữ liệu quan hệ (ERD & Schema) | Thiết kế 6 bảng chính (users, game_modes, difficulties, games, records, user_skins) và bảng hạ tầng; lập trình Migration & Seeders. | **HOÀN THÀNH (100%)** |
 | **Tuần 5** | Thiết kế giao diện UI/UX đa nền tảng & Bộ sưu tập Skin | Xây dựng giao diện Blade Responsive (PC/Tablet/Mobile), 7 bảng màu Pastel thanh lịch; thiết kế ý tưởng bộ sưu tập 26 Skin bàn cờ và lá cờ. | **HOÀN THÀNH (100%)** |
@@ -80,7 +80,7 @@
      - **Nhóm chức năng Kinh tế ảo & Cửa hàng Skin:** Tích lũy xu ảo khi thắng trận, thưởng thêm +20% xu cho chế độ biến thể, cơ chế thưởng tốc độ (Speed Bonus); sử dụng xu để mua trang phục skin bàn cờ và lá cờ.
      - **Nhóm chức năng Quản trị (Admin CMS):** Cổng đăng nhập chuyên biệt; bảng điều khiển thống kê tỷ lệ thắng/thua theo chế độ; quản lý tài khoản người dùng (khóa/mở khóa); quản lý kỷ lục thành tích; công cụ điều chỉnh số dư xu.
   2. Đặc tả yêu cầu phi chức năng (Non-Functional Requirements): Đảm bảo độ trễ 0ms khi thao tác bàn cờ; giao diện tương thích đa nền tảng PC/Tablet/Mobile; an toàn dữ liệu, chống brute-force đăng nhập và chống gian lận thời gian trên server.
-  3. **Quyết định kỹ thuật quan trọng:** Thay vì áp dụng Bot Minimax và cắt tỉa Alpha-Beta (vốn chỉ phù hợp với game đối kháng thông tin hoàn hảo, không tối ưu cho game dò mìn có yếu tố may rủi và ẩn thông tin), nhóm quyết định chuyển đổi sang xây dựng **Hệ thống Gợi ý mìn thông minh (Hint System)** với chi phí 100 xu, kết hợp giải thuật tìm mìn vùng biên tại client và xác thực trừ xu an toàn phía backend.
+  3. **Thiết kế tính năng Gợi ý mìn vùng biên (Hint System):** Xây dựng **Hệ thống Gợi ý mìn thông minh (Hint System)** với chi phí 100 xu ảo, kết hợp giải thuật tìm mìn vùng biên tại client (`engine.js`) ưu tiên các ô tiếp giáp ô số đã mở và xác thực trừ xu an toàn phía backend qua `DB::transaction()`.
 
 ### TUẦN 3: THIẾT KẾ KIẾN TRÚC HỆ THỐNG & ĐẶC TẢ RESTFUL API
 - **Mục tiêu:** Thiết lập kiến trúc phần mềm phân tầng rõ ràng, bảo đảm hiệu năng tối đa và tính bảo mật cao.
@@ -327,7 +327,7 @@ Thực thi lệnh kiểm thử độc lập: `node tests/js/engine.test.cjs`:
 | **4. Xác thực & Phân quyền** | **HOÀN THÀNH 100%** | `MinefieldAuthController.php`, `EnsureAccountIsActive`, `throttle:10,1` | Hỗ trợ đăng ký, đăng nhập băm mật khẩu, session khách, chống brute-force. |
 | **5. Quản trị Admin CMS (/admin)** | **HOÀN THÀNH 100%** | `MinefieldAdminController.php`, `resources/views/minefield/admin.blade.php` | Dashboard thống kê, CRUD tài khoản, khóa/mở khóa, CRUD kỷ lục, Give Coins. |
 | **6. Đóng gói Docker & Deploy Cloud** | **HOÀN THÀNH 100%** | `Dockerfile`, `docker-entrypoint.sh`, Render + TiDB Cloud | Docker multi-stage build, auto migrate/seed, kết nối SSL TiDB Cloud. |
-| **7. Thuật toán Bot Minimax** | **ĐÃ CHUYỂN ĐỔI HỢP LÝ** | `engine.js` (`applyHint`), API `/hint` | Chuyển đổi sang Hệ thống Gợi ý mìn thông minh (Hint 100 xu) do bản chất game ẩn thông tin không phù hợp Minimax. |
+| **7. Thuật toán Gợi ý mìn (Hint System)** | **HOÀN THÀNH 100%** | `engine.js` (`applyHint`), API `/hint` | Quét mìn vùng biên thông minh, hiệu ứng radar, trừ 100 xu an toàn qua DB::transaction. |
 | **8. Không hỗ trợ Multiplayer** | **ĐÚNG CAM KẾT 100%** | Kiến trúc Single Player | Tập trung tối ưu trải nghiệm chơi đơn và đua top qua Leaderboard. |
 | **9. Không thanh toán tiền thật** | **ĐÚNG CAM KẾT 100%** | Hệ thống Xu ảo nội bộ (Virtual Coins) | Kiếm xu qua kỹ năng chiến thắng và thưởng tốc độ Speed Bonus. |
 

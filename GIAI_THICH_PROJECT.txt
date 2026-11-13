@@ -1,0 +1,1396 @@
+GIAI THICH PROJECT MINESWEEPER
+==============================
+
+Tai lieu nay giai thich luong chinh cua project Laravel Minefield:
+  - Nguoi dung bam nut nao tren giao dien
+  - JavaScript nao bat su kien
+  - API nao duoc goi
+  - Route Laravel nao tiep nhan
+  - Controller xu ly va tra ket qua ra sao
+
+Luu y: Duong dan trong tai lieu duoc viet tu thu muc goc project.
+
+
+1. TONG QUAN CAC LOP
+====================
+
+resources/views/minefield/*.blade.php
+  Tao giao dien HTML: form, nut, ban choi, dialog va cac vung hien thi.
+
+public/minefield/js/login.js, modes.js, game.js, shop.js, skins.js
+  Bat su kien click/submit tren trang va dieu khien giao dien, cua hang skin.
+
+public/minefield/js/engine.js
+  Xu ly luat game: tao min, mo o, dat co, loang o trong, kiem tra thang/thua.
+  Engine khong phu thuoc HTML/DOM; tren trinh duyet, danh muc mode/do kho duoc
+  nap tu database qua MF_GAME_OPTIONS.
+
+public/minefield/js/api.js
+  Gom cac ham gui HTTP request tu trinh duyet den Laravel.
+
+public/minefield/js/ui.js
+  Cac thanh phan giao dien dung chung: header, menu tai khoan, dialog,
+  leaderboard, toast va dinh dang thoi gian.
+
+routes/web.php
+  Noi URL voi view hoac controller method.
+
+app/Http/Controllers/
+  Xu ly nghiep vu, validation, session va database.
+
+app/Models/
+  Model Laravel dai dien cho cac bang du lieu.
+
+database/migrations/
+  Dinh nghia cau truc bang database.
+
+Luong web tong quat:
+
+  Blade view
+    -> JavaScript cua trang
+    -> api.js (neu can goi API)
+    -> routes/web.php
+    -> Controller
+    -> Model / database / session
+    -> JSON response
+    -> JavaScript cap nhat giao dien hoac chuyen trang
+
+
+2. CAC FILE NEN TANG NAP TREN MOI TRANG
+========================================
+
+2.1 resources/views/minefield/partials/scripts.blade.php
+
+Partial nay duoc cac trang Minefield include o cuoi body. No:
+
+1. Doc user da dang nhap hoac trang thai guest tu Laravel.
+2. Dua thong tin do vao window.MF_INITIAL_SESSION de JavaScript dung.
+3. Lay mode va difficulty tu AppServiceProvider, dua vao MF_GAME_OPTIONS.
+4. Nap public/minefield/js/config.js.
+5. Ghi API_BASE va URL cac trang vao window.MF_CONFIG.
+6. Nap cac script theo thu tu:
+     engine.js -> api.js -> ui.js -> script rieng cua trang.
+
+Thu tu nay co y nghia: game.js va modes.js can engine/API/UI da duoc nap truoc.
+
+2.2 public/minefield/js/config.js
+
+Chua cau hinh mac dinh, vi du API_BASE. Partial scripts co the ghi de cau hinh
+API_BASE va URL dung voi base path hien tai cua Laravel.
+
+2.3 public/minefield/js/api.js
+
+Bien BASE la prefix API, thuong la /api.
+Bien session giu thong tin user ban dau trong MF_INITIAL_SESSION.
+
+request(path, options):
+  - Dung fetch(BASE + path) de gui request.
+  - credentials: same-origin de trinh duyet gui cookie session Laravel.
+  - Accept: application/json yeu cau response JSON.
+  - Content-Type: application/json cho biet request body la JSON.
+  - X-CSRF-TOKEN lay tu meta csrf-token trong trang.
+  - Neu response loi, doc errors/message va nem Error de code goi ham co the
+    bat bang try/catch.
+
+post(path, data):
+  Tao request POST va JSON.stringify(data).
+
+Nhung ham API duoc phoi ra window.MF_API:
+  signup(data)           -> POST /api/signup
+  login(data)            -> POST /api/login
+  adminLogin(data)        -> POST /api/admin/login
+  playAsGuest()           -> POST /api/guest
+  logout()                -> POST /api/logout
+  startGame(data)         -> POST /api/games
+  submitResult(data)      -> POST /api/games/{token}/win
+  submitLoss(token)       -> POST /api/games/{token}/loss
+  getLeaderboard(data)    -> GET /api/leaderboard?...
+  getBestTime(data)       -> GET /api/best-time?...
+  useHint(token)          -> POST /api/games/{token}/hint
+  getShop()               -> GET /api/shop
+  buySkin(skinId, type)   -> POST /api/shop/buy
+  equipSkin(skinId, type) -> POST /api/shop/equip
+
+getPrefs()/setPrefs():
+  Doc va ghi mode/do kho da chon vao localStorage voi key mf_prefs.
+  Day la tuy chon tren trinh duyet, khong phai ban ghi database.
+
+2.4 routes/web.php
+
+Route::view('/', 'minefield.login')
+  Khi mo /, Laravel render trang login.
+
+Route::view('/modes', 'minefield.modes')
+  -> trang chon che do va do kho.
+Route::view('/game', 'minefield.game')
+  -> trang ban choi.
+Route::view('/shop', 'minefield.shop')
+  -> trang cua hang trang phuc (Phong Thu Chien Thuat).
+Route::view('/admin/login', 'minefield.admin-login')
+  Cac route tren tra ve Blade view.
+
+Route::middleware('auth')->group(...)
+  Cac route admin trong nhom yeu cau user da dang nhap.
+  Controller van kiem tra role admin rieng; middleware auth chi xac nhan dang nhap,
+  khong tu dong dam bao user la admin.
+
+Route::prefix('api')->group(...)
+  Cac route ben trong co prefix /api.
+  Vi du Route::post('/login', ...) tro thanh POST /api/login.
+
+
+3. DANG KY, DANG NHAP, GUEST VA DANG XUAT
+==========================================
+
+Giao dien dang nhap:
+  resources/views/minefield/login.blade.php
+
+JavaScript xu ly form:
+  public/minefield/js/login.js
+
+API:
+  public/minefield/js/api.js
+
+Routes:
+  routes/web.php
+
+Controller:
+  app/Http/Controllers/MinefieldAuthController.php
+
+Model user:
+  app/Models/User.php
+
+3.1 Mo trang dang nhap
+
+GET /
+  -> routes/web.php
+  -> render minefield.login
+  -> partials/scripts.blade.php nap cac JS
+  -> login.js chay va khoi tao header/form.
+
+3.2 Bam tab Log in / Sign up
+
+Trong login.js, tabs co event listener click.
+Khi bam nut tab:
+  1. Tim button co data-tab.
+  2. Goi setTab(next).
+  3. Doi tab dang duoc chon va cap nhat aria-selected.
+  4. Doi tieu de, mo ta va noi dung nut submit.
+  5. Hien truong Display name chi khi dang Sign up.
+  6. Xoa thong bao loi cu.
+
+Day chi la thay doi giao dien, chua goi server.
+
+3.3 Gui form dang nhap/dang ky
+
+Trong login.js:
+  form.addEventListener('submit', async ...)
+
+e.preventDefault():
+  Chan trinh duyet tu submit form theo cach mac dinh va tai lai trang.
+
+username.value.trim():
+  Lay username va bo khoang trang o dau/cuoi.
+
+password.value:
+  Lay mat khau; khong trim vi khoang trang co the la mot phan mat khau.
+
+Neu username/password rong:
+  Hien loi tren form va return, khong gui API.
+
+Neu du du lieu:
+  - tab === 'login' -> api.login({username, password})
+  - tab === 'signup' -> api.signup({username, password, displayName})
+
+await doi server tra ket qua.
+Neu thanh cong:
+  - role admin -> chuyen /admin
+  - role khac -> chuyen /modes
+Neu that bai:
+  - catch nhan Error tu api.js
+  - showError(err.message)
+  - bat lai nut submit.
+
+3.4 MinefieldAuthController.php - cau truc dau file
+
+namespace App\Http\Controllers;
+  Cho biet controller thuoc namespace controller cua ung dung.
+
+use App\Models\User;
+  Cho phep dung model User.
+
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+  Request chua du lieu gui len, session va user hien tai.
+  JsonResponse la kieu response JSON.
+
+use Illuminate\Support\Facades\Auth;
+  Facade cho dang nhap/dang xuat va xac thuc.
+
+use Illuminate\Support\Facades\Hash;
+  Dung de bam mat khau.
+
+use Illuminate\Validation\ValidationException;
+  Nem loi validation theo format Laravel.
+
+class MinefieldAuthController extends Controller
+  Khai bao controller, ke thua controller co so.
+
+3.5 current(Request $request): JsonResponse
+
+Route: GET /api/session
+
+if ($user = $request->user()) {
+    return response()->json($this->userPayload($user));
+}
+
+$request->user():
+  Lay user dang duoc Laravel xac thuc tu session cookie.
+
+Neu co user:
+  Tra ve JSON thong qua userPayload().
+
+Neu khong co user:
+  Doc session key minefield.guest.
+  - Neu key guest ton tai/truthy: tra object guest.
+  - Neu khong: tra JSON null.
+
+Ham nay cung cap thong tin phien hien tai. Trong project, partial scripts
+thuong nhung MF_INITIAL_SESSION truc tiep vao HTML; api.js khong goi current()
+trong luong dang nhap hien tai.
+
+3.6 signup(Request $request): JsonResponse
+
+Route: POST /api/signup
+
+Khoi validation:
+
+  $data = $request->validate([...]);
+
+Laravel kiem tra du lieu truoc khi tao user:
+
+username:
+  required                       bat buoc
+  regex:/^[A-Za-z0-9_]{3,20}$/  chi chu, so, dau gach duoi; dai 3-20
+  unique:users,username          khong trung username trong bang users
+
+displayName:
+  nullable                       co the khong gui
+  string                         neu co phai la chuoi
+  max:24                         toi da 24 ky tu
+
+password:
+  required                       bat buoc
+  string                         phai la chuoi
+  min:6                          toi thieu 6 ky tu
+
+Neu validation that bai, Laravel tu tra response loi; cac dong sau khong chay.
+
+Khoi tao user:
+
+  $user = User::create([...]);
+
+username:
+  Lay tu du lieu da validation.
+
+display_name:
+  trim($data['displayName'] ?? '') bo khoang trang.
+  Toan tu ?: dung username neu display name bi thieu hoac rong sau khi trim.
+
+password:
+  Hash::make(...) bam mat khau truoc khi luu.
+  Password goc khong duoc luu thanh van ban trong database.
+
+User::create() tao ban ghi users. Cac truong duoc phep mass-assign nam trong
+app/Models/User.php, trong mang $fillable.
+
+Khoi session/dang nhap:
+
+  $request->session()->forget('minefield.guest');
+    Xoa trang thai guest cu neu co.
+
+  Auth::login($user);
+    Dang nhap ngay user vua tao.
+
+  $request->session()->regenerate();
+    Tao session ID moi sau khi thay doi trang thai xac thuc.
+
+Tra ket qua:
+
+  return response()->json($this->userPayload($user), 201);
+
+Tra JSON thong tin user va HTTP status 201 (da tao tai khoan thanh cong).
+
+3.7 login(Request $request): JsonResponse
+
+Route: POST /api/login
+
+Validation:
+  username required, string, toi da 20 ky tu.
+  password required, string.
+
+Xac thuc:
+
+  Auth::attempt([
+      'username' => trim($data['username']),
+      'password' => $data['password']
+  ])
+
+Laravel tim user theo username va so sanh password gui len voi password bam
+trong database. Khong tu so sanh password bang van ban thuong.
+
+Neu Auth::attempt() tra false:
+  Nem ValidationException voi thong bao Wrong username or password.
+  Request dung tai day va frontend nhan loi.
+
+Neu dung:
+  1. Xoa minefield.guest.
+  2. Regenerate session.
+  3. Lay user vua dang nhap bang $request->user().
+  4. Kiem tra user->is_locked.
+
+Neu tai khoan bi khoa:
+  Auth::logout() huy dang nhap.
+  Nem ValidationException voi thong bao This account is locked.
+
+Neu khong bi khoa:
+  Tra userPayload() duoi dang JSON.
+
+3.8 adminLogin(Request $request): JsonResponse
+
+Route: POST /api/admin/login
+
+Validation va Auth::attempt() giong login().
+
+Sau khi username/password dung:
+
+  $user = $request->user();
+  if ($user->role !== 'admin' || $user->is_locked) { ... }
+
+Toan tu || la OR. Neu user khong phai admin HOAC dang bi khoa:
+  - Auth::logout()
+  - Nem loi Admin access is required.
+
+Neu hop le:
+  - Xoa trang thai guest.
+  - Regenerate session.
+  - Tra userPayload().
+
+Frontend admin-login.js sau khi API thanh cong se chuyen /admin.
+Backend van kiem tra role khi vao trang admin; khong chi dua vao redirect frontend.
+
+3.9 guest(Request $request): JsonResponse
+
+Route: POST /api/guest
+
+  Auth::logout();
+    Neu dang co user login thi dang xuat.
+
+  $request->session()->regenerate();
+    Tao session ID moi.
+
+  $request->session()->put('minefield.guest', true);
+    Luu trang thai guest trong session.
+
+Sau do tra:
+  username null, displayName Guest, role guest, guest true.
+
+login.js xu ly click Play as guest:
+  1. preventDefault() chan link chuyen trang ngay.
+  2. Goi api.playAsGuest().
+  3. Neu thanh cong chuyen den /modes.
+  4. Neu loi hien loi tren trang.
+
+3.10 logout(Request $request): JsonResponse
+
+Route: POST /api/logout
+
+  Auth::logout();
+    Dang xuat user.
+
+  $request->session()->invalidate();
+    Huy session hien tai va xoa du lieu session.
+
+  $request->session()->regenerateToken();
+    Tao CSRF token moi.
+
+Tra JSON {loggedOut: true}.
+
+Trong ui.js, nguoi dung bam Log out trong menu avatar:
+  ui.js -> api.logout() -> POST /api/logout -> controller logout()
+  -> sau khi API xong, api.js dat bien session = null
+  -> ui.js chuyen ve trang chu.
+
+3.11 userPayload(User $user): array
+
+Ham private, chi controller nay goi.
+Nhan mot User, tra mang gom:
+  username
+  displayName (lay tu cot display_name)
+  role
+  guest = false
+
+Khong tra password. Mang nay duoc response()->json() chuyen thanh JSON.
+
+
+4. LUONG CHON LUAT VA BAT DAU CHOI
+==================================
+
+Giao dien:
+  resources/views/minefield/modes.blade.php
+
+JavaScript:
+  public/minefield/js/modes.js
+
+4.1 Khi vao /modes
+
+Route view render modes.blade.php. modes.js:
+  1. Goi ui.requireSession(); neu khong co session thi chuyen ve trang login.
+  2. Goi ui.initHeader().
+  3. Doc MODES va DIFFICULTIES tu engine.js.
+  4. Doc tuy chon cu tu api.getPrefs().
+  5. Neu tuy chon khong hop le thi mac dinh classic/medium.
+  6. Tao cac the mode va nut difficulty.
+  7. Tai top time cho mode/do kho hien tai.
+
+4.2 Chon mode
+
+Modes duoc render thanh cac button data-mode.
+Khi bam:
+  - Tim the duoc bam.
+  - Cap nhat bien mode.
+  - paintModes() danh dau the dang chon.
+  - refreshTopTime() goi API de lay top time moi.
+
+4.3 Chon difficulty
+
+ui.segmented() tao nhom nut difficulty.
+Khi chon:
+  - Callback cap nhat bien difficulty.
+  - Goi refreshTopTime().
+
+4.4 Top time
+
+refreshTopTime():
+  - Tang topReq de danh dau request moi.
+  - Goi api.getBestTime({mode, difficulty}).
+  - Khi co response, bo qua response cu neu da co request moi hon.
+  - Cap nhat nhan va thoi gian tren giao dien.
+
+API flow:
+  modes.js -> api.js GET /api/best-time
+  -> routes/web.php -> MinefieldGameController::bestTime()
+  -> tim min(records.best_time_ms) -> JSON -> modes.js.
+
+4.5 Play now
+
+Khi bam:
+  1. api.setPrefs() luu mode va difficulty vao localStorage.
+  2. Chuyen den /game?mode=...&diff=...
+  3. game.js doc query string va tao ban tuong ung.
+
+4.6 Mo huong dan neighbors
+
+Bam "Which cells count as neighbors?":
+  - modes.js tao dialog qua ui.makeDialog().
+  - Noi dung dialog duoc sinh tu MODES va hint.
+  - Bam nut dong hoac click nen dialog thi dong dialog.
+
+
+5. LUAT GAME TRONG engine.js
+============================
+
+engine.js la logic game doc lap voi giao dien.
+No export MinefieldEngine cho browser va co the export module cho Node test.
+
+5.1 MODES
+
+Tren browser, MODES duoc tao tu window.MF_GAME_OPTIONS.modes; AppServiceProvider
+doc danh muc nay tu bang game_modes. Khi chay engine test trong Node, engine.js
+dung cau hinh mac dinh de cac test logic co the chay doc lap voi Laravel.
+
+Moi mode co:
+  id      ma mode
+  label   ten hien thi
+  hint    mo ta
+  offsets danh sach vi tri tuong doi cua cac o neighbor
+
+Vi du Classic co 8 offsets, Plus co 4 offset ngang/doc, Corner co 4 offset cheo.
+neighbors(i) dung offsets nay de tinh neighbor cho cac thuat toan.
+
+5.2 DIFFICULTIES
+
+Tren browser, DIFFICULTIES duoc tao tu window.MF_GAME_OPTIONS.difficulties;
+AppServiceProvider doc danh muc nay tu bang difficulties.
+
+Moi do kho quy dinh:
+  rows   so hang
+  cols   so cot
+  mines  so min
+
+game.js lay thong so nay de tao Minesweeper.
+
+5.3 Constructor Minesweeper
+
+Nhan rows, cols, mines, mode va tuy chon rng/now.
+  - Kiem tra mode co ton tai.
+  - Kiem tra so min hop le.
+  - Luu kich thuoc, so min va ham random/thoi gian.
+  - Tao cache neighbor.
+  - Goi reset() de tao trang thai ban moi.
+
+5.4 reset()
+
+Tao mang cells, moi cell co:
+  mine, adj, revealed, flagged, exploded.
+
+Dat state = ready, flags/revealedCount = 0, startedAt/endedAt = null.
+Goi _emit() de thong bao cho UI neu da gan callback onStateChange.
+
+5.5 neighbors(i)
+
+Chuyen index i thanh row/column.
+Cong tung offset cua mode de tao vi tri neighbor.
+Bo qua vi tri vuot bien ban co.
+Luu ket qua vao _nbCache de khong phai tinh lai.
+
+5.6 reveal(i)
+
+  - Tu choi hanh dong neu game da ket thuc hoac index khong hop le.
+  - Khong mo lai cell da mo hoac dang co co.
+  - Neu state ready, goi _placeMines(i), bat dau tinh gio va chuyen state playing.
+  - Neu cell la min, goi _lose().
+  - Neu khong phai min, goi _flood() de mo o.
+  - Cuoi cung goi _checkWin().
+
+Mins chi duoc tao khi click dau tien, khong phai luc tai trang.
+
+5.7 _placeMines(safe)
+
+  - Tao tap banned gom o click dau va neighbor cua no.
+  - Tao pool cac o duoc phep dat min.
+  - Neu pool khong du cho, chi cam dat min vao o click dau.
+  - Dung Fisher-Yates de chon vi tri ngau nhien.
+  - Tinh adj cho moi o bang cach dem min trong neighbors(i).
+
+5.8 _flood(start, changed)
+
+Dung stack de mo lan:
+  - Mo o start.
+  - Neu o co adj = 0, dua cac neighbor chua mo/chua co vao stack.
+  - Lap cho den khi stack rong.
+  - Ghi index cac o vua doi vao changed de UI chi render lai nhung o do.
+
+5.9 toggleFlag(i)
+
+Neu game con dang choi va o chua mo:
+  - Dao trang thai flagged.
+  - Tang/giam flags.
+  - Tra ve danh sach o thay doi.
+
+5.10 chord(i)
+
+Chi ap dung neu o i da mo va co so neighbor min lon hon 0.
+Dem so co xung quanh. Neu so co bang adj:
+  - Mo cac neighbor chua mo/chua co.
+  - Neu mo trung min thi thua.
+  - Neu khong thi flood-fill va kiem tra thang.
+
+5.11 _checkWin(changed)
+
+Thang khi so o da mo bang tong so o khong co min.
+Khi thang:
+  - Dat endedAt.
+  - Tu dong danh co cac min chua co.
+  - Chuyen state sang won.
+
+5.12 _lose(hit, changed)
+
+  - Dat endedAt.
+  - Danh dau o min vua mo la exploded.
+  - Danh sach cac o min chua danh co va co sai de UI hien thi.
+  - Chuyen state sang lost.
+
+5.13 view(i)
+
+Chuyen trang thai cell thanh loai giao dien:
+  number, empty, flag, mine, exploded, wrongflag, hidden.
+game.js doc gia tri nay de gan CSS class va SVG.
+
+
+6. LUONG TRANG GAME TRONG game.js
+=================================
+
+Giao dien:
+  resources/views/minefield/game.blade.php
+
+JavaScript:
+  public/minefield/js/game.js
+
+6.1 Kiem tra session
+
+game.js goi ui.requireSession().
+Neu khong co session, ui.requireSession() chuyen ve trang chu va game.js dung.
+Neu co session, initHeader() ve header tai khoan.
+
+6.2 Doc mode/do kho
+
+game.js doc query string mode/diff.
+Neu URL hop le thi uu tien URL; neu khong thi doc localStorage; neu van sai
+thi dung classic/medium.
+
+6.3 configure(mode, difficulty)
+
+Ham nay tao hoac cau hinh lai ban:
+  1. Tang runId de danh dau vong choi moi.
+  2. Dung timer cu.
+  3. Xoa startPromise cu.
+  4. Cap nhat mode/difficulty.
+  5. Lay rows/cols/mines tu DIFFICULTIES.
+  6. Tao Minesweeper moi.
+  7. Gan onStateChange.
+  8. Cap nhat segmented control, tieu de va document.title.
+  9. Luu tuy chon.
+  10. Cap nhat query string bang history.replaceState().
+  11. buildBoard(), an ket qua cu, cap nhat bo dem.
+
+6.4 buildBoard()
+
+Tao mot button cho moi cell trong game.cells:
+  - Gan class cell.
+  - Gan data-i la index.
+  - Them vao fragment, sau do them fragment vao board.
+  - Goi renderCell(i) de ve trang thai ban dau.
+
+6.5 renderCell(i)
+
+Goi game.view(i) lay loai cell.
+Dua tren kind:
+  - number: hien so va class n1/n2...
+  - empty: o trong da mo.
+  - flag: hien SVG co.
+  - mine/exploded: hien SVG min.
+  - wrongflag: hien co sai.
+  - hidden: o chua mo.
+
+Gan aria-label de ho tro cong cu doc man hinh.
+
+6.6 apply(changed)
+
+Nhan danh sach index cell vua doi tu engine.
+Render lai tung cell trong danh sach va cap nhat bo dem.
+
+6.7 Timer
+
+startTimer() goi setInterval moi 100 ms.
+tick() tinh game.elapsedMs() va hien so giay.
+stopTimer() clear interval.
+Timer lay moc thoi gian tu engine; khong phai moi lan tick cong them mot giay.
+
+6.8 Su kien tren ban
+
+Click trai:
+  board click -> tim .cell -> lay data-i -> reveal(i).
+
+reveal(i):
+  - Neu cell da mo: thu game.chord(i).
+  - Neu chua mo: game.reveal(i).
+  - apply() render cac o thay doi.
+
+Chuột phai:
+  contextmenu.preventDefault() chan menu trinh duyet.
+  Neu khong phai touch thi flag(i).
+
+Cam ung:
+  pointerdown touch bat dau timeout 380ms.
+  Neu van nhan giu, dat co, ngan click sau do va rung may neu co navigator.vibrate.
+  pointerup/cancel/leave huy timeout.
+
+Ban phim:
+  F tren cell dang focus -> toggle flag.
+  R -> restart, tru truong hop dang focus trong input/textarea/select,
+  hoac co dialog dang mo, hoac phim Ctrl/Meta/Alt dang duoc giu.
+
+6.9 Restart
+
+Nut status o giua va phím R goi restart():
+  - Tang runId.
+  - Dung timer.
+  - Xoa startPromise.
+  - game.reset().
+  - An result.
+  - Render lai tat ca o va bo dem.
+
+6.10 State change va goi backend
+
+onStateChange('playing'):
+  - Bat timer.
+  - Goi api.startGame({mode, difficulty}).
+  - Request nay tao token game ben server.
+
+onStateChange('won'):
+  - Dung timer.
+  - Hien ket qua dang luu.
+  - onWin() doi startPromise de lay token.
+  - Goi submitResult(token, mode, difficulty, timeMs).
+  - Hien record/rank hoac thong bao loi.
+
+onStateChange('lost'):
+  - Dung timer.
+  - Hien ket qua thua.
+  - onLoss() doi token roi goi submitLoss().
+
+runId duoc dung de bo qua ket qua async cua van cu neu nguoi choi restart
+hoac doi cau hinh truoc khi response cu tra ve.
+
+
+7. BACKEND GAME, BEST TIME VA LEADERBOARD
+=========================================
+
+Route/controller:
+  routes/web.php
+  app/Http/Controllers/MinefieldGameController.php
+
+7.1 POST /api/games -> start()
+
+Frontend goi khi state game chuyen sang playing, tuc la sau hanh dong mo o dau.
+
+Controller:
+  1. Validate mode va difficulty co trong bang game_modes/difficulties.
+  2. Tim model GameMode va Difficulty theo code.
+  3. Tao UUID token.
+  4. Ghi thoi diem bat dau.
+  5. Neu da dang nhap, tao ban ghi games voi user, mode, do kho va status playing.
+  6. Neu guest, ghi session game theo token.
+  7. Tra JSON gom token, mode, difficulty.
+
+Guest khong tao Game record gan user; thong tin game tam nam trong session.
+
+7.2 POST /api/games/{token}/win -> win()
+
+Controller validate mode, difficulty, timeMs.
+
+Guest:
+  - Lay va xoa session game bang session()->pull().
+  - Neu khong tim thay token thi 404.
+  - Kiem tra mode/do kho gui len khop voi session.
+  - Kiem tra time.
+  - Tra {saved: false}; guest khong luu leaderboard.
+
+Tai khoan:
+  - Chay trong DB::transaction() de cac thay doi lien quan thanh cong/dung bo.
+  - Tim game theo token va user hien tai, lockForUpdate() tranh cap nhat dong thoi.
+  - Kiem tra game ton tai va dang playing.
+  - Kiem tra mode/do kho gui len khop thong tin game.
+  - Kiem tra thoi gian bao cao.
+  - Cap nhat game status=won, finished_at, time_ms.
+  - Tim record cua user theo mode/do kho.
+  - Neu chua co record hoac thoi gian moi nhanh hon, tao/cap nhat record.
+  - Tinh rank bang cach dem record nhanh hon, hoac cung thoi gian nhung dat som hon.
+  - Tra JSON saved, isBest, rank.
+
+verifyGamePayload():
+  Dam bao mode va difficulty trong request trung voi cau hinh da tao cho token.
+  Neu khac, nem ValidationException.
+
+verifyTime():
+  Tinh elapsed = thoi gian hien tai tren server - started_at.
+  Cho phep sai so TIME_TOLERANCE_MS = 2500.
+  Neu thoi gian client bao cao qua ngan so voi thoi gian server thi tu choi.
+
+Luu y: controller kiem tra token, cau hinh va thoi gian; no khong tai toan bo
+lich su click de tu tinh lai nuoc di. Logic xac dinh thang/thua nam trong engine.js.
+
+7.3 POST /api/games/{token}/loss -> loss()
+
+Guest:
+  Xoa game khoi session neu co, tra {saved:false}.
+
+Tai khoan:
+  Tim game theo token va user.
+  Neu status dang playing thi cap nhat lost va finished_at.
+  Tra {saved:true}.
+
+7.4 GET /api/leaderboard -> leaderboard()
+
+Validate mode/difficulty va limit (mac dinh 10, gioi han 1-100).
+Join records voi users.
+Loc theo mode/do kho.
+Sap xep best_time_ms tang dan, sau do achieved_at tang dan.
+Lay gioi han record va tra danh sach JSON co rank, username, displayName, timeMs, at.
+
+7.5 GET /api/best-time -> bestTime()
+
+Validate mode/difficulty.
+Join records voi game_modes va difficulties.
+Tim min(best_time_ms) cho mode/do kho.
+Tra {timeMs: ...}; neu chua co record thi gia tri co the la null.
+
+7.6 Giao dien leaderboard
+
+ui.js:
+  - Tao dialog khi can.
+  - Dung segmented control de chon mode/do kho.
+  - Goi api.getLeaderboard().
+  - Dung JSON de tao cac hang HTML.
+  - Danh dau hang cua user dang dang nhap.
+  - Dinh dang thoi gian bang formatTime().
+
+
+8. TRANG QUAN TRI
+=================
+
+Giao dien:
+  resources/views/minefield/admin.blade.php
+
+Controller:
+  app/Http/Controllers/MinefieldAdminController.php
+
+Routes admin:
+  Trong routes/web.php, cac route nam trong middleware auth.
+
+8.1 GET /admin -> index()
+
+  - ensureAdmin() kiem tra role admin.
+  - Lay records co join users, game_modes, difficulties.
+  - Sap xep records moi nhat truoc.
+  - Phan trang records va users.
+  - Lay accountOptions, modes, difficulties.
+  - Dem so user va record.
+  - Tinh tong game hoan tat va ti le thang tong the/theo mode.
+  - Truyen cac bien vao view minefield.admin.
+
+Tai khoan bi admin khoa se bi middleware EnsureAccountIsActive dang xuat va
+chan cac request ung dung ke tiep (JSON tra HTTP 423). Cac endpoint dang nhap,
+dang ky, guest va logout van duoc phep de nguoi dung chuyen tai khoan/thoat phien.
+
+8.2 Them user
+
+Nut Add account gui form POST /admin/users.
+Route goi storeUser():
+  - Kiem tra quyen admin.
+  - Validate username, display name, password, role.
+  - User::create() tao tai khoan.
+  - forceFill(role) gan role duoc chon.
+  - return back() quay lai trang admin.
+
+8.3 Sua user
+
+Nut Save gui PUT /admin/users/{user}.
+updateUser():
+  - Validate cac truong.
+  - Cap nhat username/display_name.
+  - Neu password khong rong thi doi password.
+  - Chan admin tu ha role cua chinh minh.
+  - Luu role va thong tin user.
+  - Quay lai trang truoc.
+
+8.4 Xoa user
+
+Nut Delete gui DELETE /admin/users/{user}.
+deleteUser():
+  - Kiem tra admin.
+  - Chan xoa chinh minh.
+  - Chan xoa admin cuoi cung.
+  - Xoa user; cac quan he cascade trong database co the xoa du lieu lien quan.
+
+8.5 Lock/Unlock
+
+Nut gui POST /admin/users/{user}/lock.
+toggleUserLock():
+  - Chi ap dung voi user role user, khong phai admin.
+  - Chan admin tu khoa chinh minh.
+  - Dao is_locked true/false.
+
+8.6 Quan ly record
+
+Add record:
+  POST /admin/records -> storeRecord()
+  Validate user, mode, difficulty, thoi gian va ngay dat.
+  Khong cho tao record trung user/mode/difficulty.
+
+Save record:
+  PUT /admin/records/{record} -> updateRecord()
+  Cap nhat thoi gian/ngay va dat game_id = null vi record duoc sua thu cong.
+
+Delete record:
+  DELETE /admin/records/{record} -> deleteRecord()
+
+8.7 Tao tai khoan admin ban dau
+
+AdminUserSeeder doc MINEFIELD_ADMIN_USERNAME va MINEFIELD_ADMIN_PASSWORD tu
+config/minefield.php. Khong co mat khau mac dinh yeu trong source. Mat khau
+phai co it nhat 12 ky tu; khi chay seeder, mat khau duoc Hash::make() truoc khi
+ghi database. DatabaseSeeder chay seeder nay va se thong bao neu chua cau hinh
+MINEFIELD_ADMIN_PASSWORD.
+
+Game va Record su dung dateFormat Y-m-d H:i:s.v de giu mili-giay cua cac cot
+DATETIME(3), thay vi cat phan le den giay.
+
+Form HTML co @csrf de gui CSRF token.
+@method('put') va @method('delete') cho phep Laravel nhan method PUT/DELETE
+tu HTML form, du HTML form thuong gui GET/POST.
+
+
+9. CAC MODEL VA BANG DU LIEU CHINH
+==================================
+
+database/migrations/2026_10_26_000000_create_minefield_tables.php
+
+game_modes:
+  code, name, description, neighbor_offsets.
+
+difficulties:
+  code, name, board_rows, board_cols, mine_count.
+
+games:
+  token, user_id, mode_id, difficulty_id, status,
+  started_at, finished_at, time_ms.
+
+records:
+  user_id, mode_id, difficulty_id, game_id,
+  best_time_ms, achieved_at.
+  Moi user chi co mot record cho moi cap mode/do kho (unique constraint).
+
+app/Models/User.php:
+  Model xac thuc tai khoan, password duoc cast hashed,
+  co quan he games() va records().
+
+app/Models/Game.php:
+  Model games, cast thoi gian va time_ms,
+  belongsTo user va hasOne record.
+
+app/Models/Record.php:
+  Model records, cast best_time_ms/achieved_at,
+  belongsTo user va game.
+
+
+10. SO DO LUONG CAC THAO TAC THUONG GAP
+========================================
+
+DANG KY:
+  login.blade.php
+  -> login.js submit
+  -> api.js signup()
+  -> POST /api/signup
+  -> routes/web.php
+  -> MinefieldAuthController::signup()
+  -> User::create(), dang nhap session
+  -> JSON user
+  -> login.js chuyen /modes
+
+DANG NHAP:
+  login.blade.php
+  -> login.js submit
+  -> api.js login()
+  -> POST /api/login
+  -> MinefieldAuthController::login()
+  -> Auth::attempt(), kiem tra locked
+  -> JSON user
+  -> chuyen /modes hoac /admin
+
+CHOI GUEST:
+  click Play as guest
+  -> login.js
+  -> api.js playAsGuest()
+  -> POST /api/guest
+  -> MinefieldAuthController::guest()
+  -> luu guest trong session
+  -> chuyen /modes
+
+BAT DAU GAME:
+  modes.js bam Play now
+  -> luu prefs va chuyen /game?mode=...&diff=...
+  -> game.js tao Minesweeper
+  -> mo o dau tien
+  -> engine.js tao min an toan va bat dau game
+  -> game.js goi POST /api/games
+  -> MinefieldGameController::start() tao token
+
+THANG:
+  engine.js xac dinh thang
+  -> game.js cho start request lay token
+  -> POST /api/games/{token}/win
+  -> MinefieldGameController::win()
+  -> cap nhat game/record/rank
+  -> JSON ket qua
+  -> giao dien hien thanh tich
+
+THUA:
+  engine.js xac dinh thua
+  -> game.js goi POST /api/games/{token}/loss
+  -> MinefieldGameController::loss()
+  -> cap nhat status lost
+  -> hien man hinh thua
+
+XEM LEADERBOARD:
+  ui.js mo dialog
+  -> api.js GET /api/leaderboard
+  -> MinefieldGameController::leaderboard()
+  -> JSON danh sach
+  -> ui.js render bang
+
+DANG XUAT:
+  click Log out trong menu avatar
+  -> ui.js api.logout()
+  -> POST /api/logout
+  -> MinefieldAuthController::logout()
+  -> xoa session
+  -> chuyen ve /
+
+
+12. PHAM VI CAC THAY DOI TICH HOP DEN TUAN 11
+================================================
+
+Nhung diem duoc dong bo theo giai doan Tuan 1-11:
+  - Browser nhan mode va difficulty tu cac bang danh muc qua view composer.
+  - Thoi gian DATETIME(3) duoc giu den mili-giay trong Game va Record.
+  - Tai khoan bi khoa khong the tiep tuc goi cac route game/admin trong session cu.
+  - Trang Admin hien thi tong game hoan tat va ti le thang theo mode.
+  - Admin seeder chi nhan mat khau cau hinh, khong hard-code Admin/123.
+
+Viec ghi status rejected khi phat hien thoi gian bat thuong va bo sung kiem thu
+chong gian lan thuoc ke hoach Tuan 12, nen chua duoc thay doi trong pham vi nay.
+
+
+11. CACH TU LAN THEO MOT NUT TRONG PROJECT
+==========================================
+
+Khi muon biet mot nut lam gi, tim theo thu tu:
+
+1. Tim nut trong resources/views/minefield/*.blade.php.
+   Xem id, class, href, action hoac data-* cua nut.
+
+2. Tim id/data-* do trong public/minefield/js/*.js.
+   Xem addEventListener('click'/'submit') va ham duoc goi.
+
+3. Neu thay api.tenHam(), tim ham do trong public/minefield/js/api.js.
+   Xem URL, method va body duoc gui.
+
+4. Tim URL/method trong routes/web.php.
+   Xem route tro den controller va method nao.
+
+5. Mo controller method tuong ung.
+   Doc validation, dieu kien, model/database/session va response.
+
+6. Neu can biet cot/bang, mo model va migration.
+
+Vi du voi nut Play as guest:
+  login.blade.php id="guest"
+  -> login.js listener cho $('guest')
+  -> api.playAsGuest()
+  -> api.js POST /guest
+  -> routes/web.php POST /api/guest
+  -> MinefieldAuthController::guest()
+  -> ghi minefield.guest vao session
+  -> login.js chuyen /modes
+
+
+13. DE XUAT BOT MINIMAX + ALPHA-BETA DUOI DANG NUT HINT
+========================================================
+
+Trang thai hien tai:
+  Project chua co nut Hint, chua co bot va chua co file bot.js.
+  Phan nay la thiet ke de xuat de dap ung muc tieu Bot trong phieu dang ky,
+  khong mo ta mot tinh nang da duoc lap trinh.
+
+13.1 Vi sao Hint Bot hop voi Minesweeper?
+
+Nguoi choi bam Hint de nhan goi y, nhung van tu quyet dinh mo o hay cam co.
+Bot khong tu dong choi thay nguoi dung. Cac goi y co the gom:
+  - O an toan chac chan, nen mo.
+  - O chac chan co min, nen cam co.
+  - Chua du thong tin de ket luan; neu phai doan thi goi y o co rui ro thap hon.
+
+Cach nay phu hop voi Minesweeper hon viec coi game nhu co doi thu co nuoc di.
+Minesweeper la bai toan thong tin an: cac con so gioi han nhung vi tri min co
+the xay ra, va doi khi nguoi choi bat buoc phai doan.
+
+13.2 Du lieu Bot duoc phep xem
+
+Bot chi nhan thong tin cong khai ma nguoi choi nhin thay:
+  - O nao da mo va so min hien tren o do.
+  - O nao dang bi danh co.
+  - O nao chua mo.
+  - Mode hien tai va so min con lai neu game cung cap thong tin nay.
+
+Khong gui danh sach vi tri min that trong cac cell an cho Bot. Engine hien dang
+giu thong tin noi bo mine trong game.cells; can tao mot ham snapshot rieng chi
+tra ve trang thai cong khai, khong dua truc tiep mang cells noi bo cho Bot.
+Neu Bot doc vi tri min an, no khong con la Bot suy luan ma chi doc dap an.
+
+13.3 Vai tro cua suy luan, Minimax va Alpha-Beta
+
+Buoc dau tien la lap rang buoc tu cac o so:
+  - Moi o an chua biet la bien co min (1) hoac an toan (0).
+  - So tren o da mo bang tong so min trong cac neighbor chua mo, sau khi tru
+    cac co da danh dau.
+  - Cac rang buoc duoc ket hop de phat hien o chac chan an toan/min.
+
+Neu co nhieu cach sap min cung phu hop voi thong tin, Bot co the tim kiem cac
+kha nang do va cham diem cac hanh dong. De giai thich Minimax trong de tai:
+  - MAX dai dien Bot chon hanh dong co diem tot nhat.
+  - MIN dai dien tinh huong bat loi nhat trong nhom cach sap min van phu hop
+    voi cac dau hieu da mo.
+  - Ham diem co the uu tien an toan, dong thoi tinh den gia tri thong tin cua
+    o mo ra (co the giup suy luan them).
+  - Alpha-Beta cat cac nhanh khong the thay doi lua chon tot nhat hien tai.
+
+Day la cach ap dung Minimax theo tinh huong xau nhat cho bai toan co thong tin
+an, khong phai Minimax doi khang co dien nhu co vua. Nen ghi ro cach mo hinh hoa
+MAX/MIN va ham diem trong bao cao; neu giang vien yeu cau mot mo hinh cu the,
+can thong nhat mo ta voi giang vien truoc khi chot bao cao.
+
+13.4 Hai muc do de the hien trong giao dien
+
+De:
+  - Dung cac quy tac suy luan don gian tu cac con so.
+  - Neu tim thay o chac chan an toan/min thi dua ra goi y do.
+  - Neu khong tim thay, thong bao chua du du kien hoac dua ra lua chon co ban.
+
+Kho:
+  - Xet nhieu rang buoc va nhieu cach sap min phu hop hon.
+  - Dung tim kiem Minimax theo tinh huong xau nhat va Alpha-Beta pruning.
+  - Cham diem muc do an toan va gia tri thong tin cua cac nuoc di.
+  - Neu khong co nuoc chac chan an toan, noi ro day la goi y co rui ro, khong
+    dam bao khong trung min.
+
+Hai muc do phai duoc phan biet bang cach tim kiem/thang diem thuc te, khong chi
+doi ten nut hoac chi doi mot chuoi giao dien.
+
+13.5 Luong ky thuat de tich hop vao project
+
+  Nut Hint trong resources/views/minefield/game.blade.php
+    -> game.js bat su kien click
+    -> engine.js tao public snapshot (khong tiet lo vi tri min an)
+    -> bot.js nhan snapshot, mode va cap do De/Kho
+    -> bot.js tra {type, index, confidence, explanation}
+    -> game.js highlight o va hien giai thich
+    -> nguoi choi tu mo o/cam co theo goi y
+
+Bot Hint khong can goi API Laravel neu toan bo suy luan chay tai browser va
+khong can luu lich su goi y. Dieu nay giu bot gan voi client va engine hien co.
+Chi can API neu sau nay muon luu thong ke su dung Hint hoac chay bot phia server.
+
+13.6 Cac buoc phat trien va kiem thu
+
+1. Them public snapshot vao engine.js va test snapshot khong chua vi tri min an.
+2. Viet bot.js doc lap DOM, nhan snapshot va tra hanh dong goi y.
+3. Them nut Hint, lua chon cap do va vung hien thong diep trong game.blade.php.
+4. Noi game.js voi bot.js; highlight o duoc goi y, khong tu dong mo o.
+5. Test cac truong hop:
+     - Bot phat hien dung o an toan/min chac chan.
+     - Bot hoat dong theo offsets cua tung mode.
+     - Bot bao khong du du kien khi khong co suy luan chac chan.
+     - Bot Khong doc duoc thong tin min an.
+     - Muc Kho su dung tim kiem Minimax va Alpha-Beta that su.
+
+Ket luan ve phieu dang ky:
+  Nut Hint Bot co the phu hop voi muc tieu "Cai dat thuat toan thong minh
+  (Minimax ket hop Alpha-Beta Pruning) cho Bot voi it nhat 2 muc do (De, Kho)".
+  Phieu khong yeu cau Bot phai tu dong dieu khien ca van. De bao dam khop ro,
+  can trinh bay trong bao cao rang Hint la giao dien cua Bot; Bot co muc De/Kho;
+  muc Kho ap dung mo hinh Minimax + Alpha-Beta da giai thich o tren.
+
+
+14. CAP NHAT CAC SUA DOI TICH HOP VA GIAO DIEN TIENG ANH
+=========================================================
+
+Phan nay ghi lai cac sua doi da ap dung sau khi hoan thanh cac muc den Tuần 11.
+No mo ta code hien tai, khong thay the cac phan huong dan chi tiet o tren.
+
+14.1 Xep hang giu do chinh xac mili-giay (B1)
+
+Trong MinefieldGameController::win(), khi hai record co cung best_time_ms,
+rank duoc quyet dinh tiep theo bang achieved_at.
+Tham so so sanh achieved_at duoc format theo:
+  Y-m-d H:i:s.v
+
+Chuoi nay bao gom phan mili-giay, tranh viec Eloquent rut gon timestamp con
+den giay khi truyen vao truy van. Vi du, record luc .200 se duoc xep truoc
+record luc .700 trong cung mot giay neu thoi gian giai bang nhau.
+Test hoi quy kiem tra nguoi dat record sau nhan rank 2.
+
+14.2 API hien thong bao de hieu khi gap loi HTTP (B2)
+
+Trong public/minefield/js/api.js, request():
+  - Bat loi fetch va hien "Cannot reach the server. Check your connection."
+  - Neu response khong phai JSON, khong de loi parse JSON lo ra giao dien.
+  - HTTP 419 hien "Your session expired. Reload the page and try again."
+  - Loi HTTP khac uu tien validation message hoac body.message; neu khong co,
+    hien "The request could not be completed."
+
+login.js bat Error va hien noi dung do trong vung form-error.
+Da kiem tra bang cach gia lap response HTML 419/500 va loi mang; cac thong bao
+duoc hien tren form ma khong co JavaScript SyntaxError.
+
+14.3 Chay test engine JavaScript voi CommonJS (B4)
+
+Test engine hien nam o:
+  tests/js/engine.test.cjs
+
+Vi package.json khai bao type module, file test dung duoi .cjs de chay CommonJS.
+Test doc noi dung public/minefield/js/engine.js bang fs va nap qua Function,
+khong can sua engine.js.
+
+Chay bang:
+  npm run test:js
+
+package.json co script:
+  "test:js": "node tests/js/engine.test.cjs"
+
+Ket qua da xac nhan: 25 tests passed.
+
+14.4 Gioi han request dang nhap (B5)
+
+Ba route POST sau trong routes/web.php su dung throttle:10,1:
+  /api/signup
+  /api/login
+  /api/admin/login
+
+Gioi han la 10 request trong mot phut; request vuot gioi han nhan HTTP 429.
+Test feature gui 10 lan dang nhap sai (422), sau do xac nhan lan thu 11 tra 429.
+phpunit.xml dung CACHE_STORE=array cho moi truong test.
+api.js doc body.message trong response loi de login.js hien thong bao tren form.
+
+14.5 Giao dien tren web hien thi bang tieng Anh
+
+Mo ta cac mode trong database duoc cap nhat trong MinefieldSeeder:
+  classic -> All 8 surrounding cells
+  plus    -> 4 orthogonal cells
+  corner  -> 4 diagonal cells
+
+Seeder duoc chay lai de updateOrInsert cap nhat cac dong danh muc da co.
+Ten mode va difficulty tren web cung la tieng Anh. Cac chu tieng Viet con lai
+trong JavaScript la ghi chu danh cho nguoi doc ma nguon, khong hien thi cho
+nguoi choi.
+
+14.6 Ket qua kiem thu sau cac thay doi (cap nhat Tuan 12-13)
+
+  php artisan test
+    40 passed (259 assertions) — bao gom ExampleTest, MinefieldFlowTest,
+    AntiCheatAndTimerTest va ShopAndCurrencyTest.
+
+  node tests/js/engine.test.cjs
+    25 tests passed — bao gom Neighbors, Mine placement, Flood-fill,
+    Flags & chord, Win/lose, Hint (frontier) va Edge cases/state locks.
+
+Bot Minimax + Alpha-Beta trong muc 13 van la de xuat; thay vao do he thong da tich hop tinh nang Goi y min thong minh (Hint) tren engine.js ket hop tru xu DB an toan.
+
+
+15. HE THONG KINH TE XU AO, THUONG TOC DO, HINT VA CUA HANG SKIN (SHOP)
+=======================================================================
+
+15.1 He thong Xu ao (Coins) va thuong chien thang
+- Moi tai khoan nguoi choi co truong `coins` (unsigned int, mac dinh 0) trong bang users.
+- Khi chien thang mot van dau (POST /api/games/{token}/win), controller MinefieldGameController
+  goi `SkinCatalog::getRewardBreakdown($difficulty, $mode, $timeMs)` de tinh xu thuong.
+- Thuong co ban theo do kho:
+  + De (Easy): +30 xu
+  + Trung binh (Medium): +75 xu
+  + Kho (Hard): +180 xu
+  + Neu che do la bien the (plus hoac corner): cong them +20% xu co ban.
+- Co che thuong toc do (Speed Bonus):
+  + Thoi gian duoi 30 giay (< 30,000 ms): +100 xu
+  + Thoi gian duoi 60 giay (< 60,000 ms): +50 xu
+  + Thoi gian duoi 100 giay (< 100,000 ms): +25 xu
+  + Thoi gian tu 100 giay tro len (>= 100,000 ms): +0 xu (khong thuong toc do, chi nhan xu co ban theo do kho)
+- Tong xu thuong duoc cong truc tiep vao so du cua nguoi choi va luu trong DB.
+
+15.2 Tinh nang Goi y min thong minh (Hint System)
+- Route: POST /api/games/{token}/hint (middleware EnsureActiveGame).
+- Chi phi: 100 xu ao cho moi lan goi y. Backend MinefieldGameController::hint kiem tra va tru 100 xu nguyen tu trong DB::transaction(). Neu so du < 100 xu, may chu tu choi va bao loi (HTTP 422).
+- Thuat toan tim min thong minh trong Engine JS (public/minefield/js/engine.js -> applyHint()):
+  + Quet toan bo ban co client de tim cac o chua min chua duoc cam co.
+  + Phan loai thanh 2 tap hop: cac o min tiep giap o so da mo (frontier) va o min nam sau ben trong.
+  + Uu tien chon ngau nhien 1 o thuoc frontier de ho tro nguoi choi suy luan cac o ke tiep.
+  + Tu dong cam co (flag) vao o min do ngay lap tuc voi do tre 0ms.
+- Giao dien game: nut Hint tren thanh HUD, phim tat H, hieu ung song radar (radar pulse).
+
+15.3 Cua hang Skin (Shop - Phong Thu Chien Thuat) va Quan ly trang bi
+- Danh muc 26 skin duoc dinh nghia trong App\Services\SkinCatalog:
+  + 13 skin ban co (Boards): classic (0 xu), matrix (100), glacier (140), synthwave (180), sakura (220), wood (260), ocean (320), amethyst (360), emerald (440), magma (500), cyberpunk (620), royal (750), obsidian (900).
+  + 13 skin la co SVG (Flags): classic (0 xu), pirate (80), sakura (120), hazard (140), lightning (180), sapphire (200), shield (240), radar (280), crystal (340), star (400), phoenix (480), skull (550), crown (700).
+- Giao dien Phong Thu Chien Thuat (shop.blade.php + shop.js + skins.js):
+  + Ban thu truc tiep 5x5 cho phep nguoi choi mo o, cam co, phoi cap ban + co bat ky va hoan tac ve bo dang dung truoc khi quyet dinh mua.
+  + Ghim muc tieu tich xu (Pin), uoc tinh so van thang can choi theo tung do kho.
+  + Loc theo trang thai so huu (Tat ca / Du xu mua / Chua so huu / Da so huu), 4 bac thiet ke (Tieu chuan / Chien thuat / Dac nhiem / Tinh anh), tim kiem theo ten/phong cach, sap xep va modal chi tiet co so sanh A/B.
+- GET /api/shop: tra ve danh muc, thong tin skin, so du xu, danh sach da mo khoa va trang bi hien tai.
+- POST /api/shop/buy:
+  + Kiem tra nguoi choi da dang nhap.
+  + Kiem tra skin co ton tai trong SkinCatalog va nguoi dung chua tung mua (bang user_skins).
+  + Kiem tra so du xu cua nguoi choi co du de mua.
+  + Chay trong DB::transaction(): tru coins cua user, them ban ghi vao user_skins, tu dong trang bi vao equipped_board_skin hoac equipped_flag_skin.
+- POST /api/shop/equip: cho phep nguoi choi thay doi trang bi giua cac skin da so huu.
+
+15.4 Kien truc phan tach Engine JS Frontend (0ms Latency) & Backend Database Authority
+- Toan bo logic ban co (sinh min an toan sau cu click dau tien, mo o, thuat toan loang Flood-fill, chording, cam co, tim min Hint) chay hoan toan tren trinh duyet trong `public/minefield/js/engine.js` & `game.js`.
+- Nho khong phai cho doi HTTP request cho moi cu click/cam co, thao tac choi dat do tre 0ms (zero-latency) cuc ky muot ma khi choi toc do cao.
+- Backend Laravel dong vai tro quan ly co so du lieu va chong gian lan:
+  + Cap phat Game Token (UUID) va ghi nhan thoi diem `started_at` chinh xac mili-giay khi van dau bat dau (`POST /api/games`).
+  + Thuc thi cac giao dich xu an toan (tru 100 xu cho Hint, mua Skin trong `DB::transaction()`).
+  + Kiem tra hop le trang thai `playing`, so khop mode/do kho va tham dinh thoi gian chong gian lan (`MIN_PLAUSIBLE_TIME_MS = 200 ms`, `TIME_TOLERANCE_MS = 2.500 ms`) khi luu ket qua thang/thua va cap nhat `records` leaderboard (`POST /api/games/{token}/win`, `/loss`).
+
+
+16. BANG DOI CHIEU PHIEU DANG KY DE TAI VA MA NGUON THUC TE
+===========================================================
+
+1. Ba che do choi (Classic, Plus, Corner): DA CO (3 che do x 3 do kho = 9 bien the, test 25 JS tests).
+2. Tinh gio Timer va chong gian lan: DA CO (started_at tren server, thoi gian toi thieu 200 ms, kiem tra sai lech <= 2.500 ms qua verifyTime).
+3. Bang xep hang (Leaderboard): DA CO (records table, loc theo mode/diff, chinh xac den ms).
+4. Quan tri Admin: DA CO (CMS thong ke ty le thang/thua, CRUD user, khoa nick, CRUD record, Give Coins).
+5. Xac thuc nguoi dung: DA CO (signup, login bam mat khau, guest session, throttle 10 lan/phut).
+6. Bot Minimax + Alpha-Beta: CHUA CO (Da chuyen doi thanh tinh nang Goi y min thong minh Hint trong engine.js + tru xu DB tai server).
+7. Khong co Multiplayer va Khong tich hop thanh toan tien that: KHOP 100% voi pham vi cam ket.
+8. Stack cong nghe: KHOP 100% (PHP 8.2/8.3, Laravel 12, MySQL / TiDB Cloud Serverless, Docker php:8.3-apache, JavaScript, PHPUnit 40 tests, Node.js 25 tests).
+
+
+17. BO CAU HOI VA DAP AN PHAN BIEN DO AN (Q&A CHO BUOI BAO VE)
+==============================================================
+
+Cau 1: Tai sao nhom chon CSDL MySQL ma khong dung MongoDB nhu mot so de tai web khac?
+Tra loi:
+He thong Minefield co cau truc du lieu quan he chat che (Quan he 1-N giua Users - Games, Users - Records, Users - UserSkins; rang buoc khoa ngoai tham chieu toi game_modes va difficulties). Ngoai ra, MySQL ho tro ACID transaction thong qua DB::transaction() de dam bao an toan so du xu khi mua skin trong Shop va khi luu ket qua tran dau. Chi muc to hop tren MySQL (records_leaderboard_idx) giup toi uu hoa truy van bang xep hang thoi gian thuc.
+
+Cau 2: Tai sao de tai khong tich hop cong thanh toan truc tuyen nhu VNPAY, MoMo hay SePay?
+Tra loi:
+Theo dung muc "Nhung noi dung khong thuoc pham vi de tai" trong Phieu dang ky de tai chuyen nganh da duoc duyet ("Khong tich hop thanh toan"), nhom tap trung vao co che Play-to-Earn noi bo: nguoi choi dung ky nang vuot qua cac van kho va dat thoi gian nhanh de tich luy Xu ao (Coins), sau do dung xu nay de mua skin hoac goi y mìn. Dieu nay tranh phuc tap ve mat phap ly va chi phi duy tri cong thanh toan thuc te cho mot do an hoc tap.
+
+Cau 3: Tai sao logic ban co Do min van de o Frontend JS (`engine.js`) con Backend Laravel chi xu ly Database, Session va Validate?
+Tra loi:
+Minesweeper la tro choi phan xa toc do cao voi tan suat nhap chuot va cam co/chord co the len toi 5-10 thao tac moi giay. Neu moi cu click/cam co deu gui HTTP request len backend, do tre mang se gay cam giac giat lag va anh huong trai nghiem nguoi choi. Viec giu Engine thuan o JavaScript frontend (`engine.js`) giup dat do tre 0ms va toi uu render DOM. Trong khi do, Backend Laravel thuc hien dung vai tro quan ly du lieu an toan: luu tru CSDL, cap Game Token, ghi nhan thoi diem `started_at`, tham dinh thoi gian hoan thanh (`TIME_TOLERANCE_MS = 2.500 ms`), tru/cong xu qua `DB::transaction()` va cap nhat Leaderboard.
+
+Cau 4: Co che tinh thuong toc do (Speed Bonus) hoat dong the nao trong ma nguon?
+Tra loi:
+Trong file app/Services/SkinCatalog.php, ham calculateSpeedBonus(?int $timeMs) kiem tra:
+- Neu thoi gian < 30 giay (30,000 ms): thuong them 100 xu.
+- Neu thoi gian < 60 giay (60,000 ms): thuong them 50 xu.
+- Neu thoi gian < 100 giay (100,000 ms): thuong them 25 xu.
+- Tu 100 giay tro len (>= 100,000 ms): +0 xu.
+Ham getRewardBreakdown() ket hop muc xu co ban cua do kho (Easy 30, Medium 75, Hard 180), cong them 20% neu la che do bien the (Plus/Corner), va cong them Speed Bonus de ra tong so xu thuong cho van dau.
+
+Cau 5: Thuat toan Goi y min (Hint) hoat dong the nao giua Client va Server?
+Tra loi:
+Khi nguoi choi nhan nut Hint hoac phim H, he thong gui yeu cau toi `POST /api/games/{token}/hint` de Laravel kiem tra so du xu (>= 100 xu) va tru 100 xu an toan trong `DB::transaction()`. Ngay khi may chu xac nhan thanh cong, ham `applyHint()` trong `public/minefield/js/engine.js` se quet cac o min chua cam co, uu tien chon nhom "frontier" (min tiep giap it nhat 1 o so da mo) de cam co va bat hieu ung radar, giup nguoi choi suy luan cac o xung quanh.
+
+Cau 6: Tai sao tep kiem thu JavaScript lai su dung duoi file .cjs thay vi .js?
+Tra loi:
+Trong package.json, du an khai bao "type": "module" de ho tro chuan ES Module hien dai. Tep kiem thu tests/js/engine.test.cjs su dung cu phap require() cua CommonJS de doc va kiem thu file engine.js mot cach doc lap. Khi dat duoi .cjs, Node.js se nhan dien chinh xac day la CommonJS script va thuc thi ma khong gay ra xung dot dinh dang module.
+
+Cau 7: He thong bao ve truoc tan cong do quet mat khau (Brute-force) va khoa tai khoan nhu the nao?
+Tra loi:
+Cac route xac thuc (/api/login, /api/signup, /api/admin/login) deu duoc bao ve boi middleware throttle:10,1 (toi da 10 lan thu trong 1 phut). Neu vuot qua, server tra HTTP 429 Too Many Requests. Ngoai ra, tai khoan nguoi dung co truong is_locked. Khi admin khoa tai khoan, middleware EnsureAccountIsActive se lap tuc huy phien dang nhap va ngan chan moi thao tac gui ket qua len may chu.
+
+Cau 8: Tai sao cot `score` van ton tai trong bang `games` va `records` khi Endless Mode da bo?
+Tra loi:
+Trong qua trinh phat trien o tuan 11, nhom tung nghien cuu tinh nang Endless Mode tinh bang diem so (migration 2026_11_09_084237). Sau do, de dam bao dung pham vi phieu dang ky la game tinh thoi gian co dien, nhom da go bo mode nay (migration 2026_11_09_091500). CSDL duoc giu nguyen cot score voi gia tri mac dinh 0 de khong lam gian doan cac cau truc migration da chay truoc do, day la quy trinh tieu chuan trong quan ly migration CSDL.
+
+Cau 9: Chuc nang Give Coins trong trang Admin hoat dong nhu the nao?
+Tra loi:
+Admin co the truy cap modal Dieu chinh so du trong trang quan tri de cong them xu cho bat ky nguoi choi nao qua route POST /admin/users/{user}/give-coins. Admin co the nhap so xu tuy bien (step=1) hoac bam cac muc cong nhanh tu +500 den +999.999 xu. Ham giveCoins() trong MinefieldAdminController kiem tra quyen admin, cong don so du (toi da 2 ty xu) va luu vao CSDL.
+
+Cau 10: Ty le dong gop 50/50 giua hai thanh vien trong nhom duoc the hien ra sao?
+Tra loi:
+Hai thanh vien phoi hop chat che theo dung mo hinh chuyen mon hoa va Phieu dang ky de tai:
+- Nguyen Phan Thien Phuoc (50%): Thiet ke va lap trinh Backend Laravel 12, CSDL MySQL / TiDB Cloud Serverless, Migration & Seeder, Xac thuc & Phan quyen (Auth/Guest/Lock), API chong gian lan Timer, Nghiep vu Xu/Hint/Cua hang Skin qua DB::transaction(), Trang quan tri CMS, PHPUnit tests (40 tests) & Deploy Docker/Cloud.
+- To Nguyen Hoang An (50%): Thiet ke giao dien Frontend Blade/HTML5/CSS3, Engine JavaScript client & logic game (engine.js, game.js, shop.js, skins.js, ui.js), thuat toan 3 che do x 3 do kho, Flood-fill, Chording & Hint vung bien, Giao dien Responsive PC/Tablet/Mobile & cam ung, 7 chu de mau pastel va UI Motion, Node.js unit tests (25 tests) & Viet bao cao/Huong dan.

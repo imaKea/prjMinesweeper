@@ -26,9 +26,9 @@ Tài liệu này cung cấp **kịch bản kiểm tra nghiệm thu hệ thống 
 | :--- | :--- | :--- |
 | **Địa chỉ ứng dụng (Local)** | `http://127.0.0.1:8000` (hoặc `http://localhost/prjMinesweeper/public`) | Môi trường XAMPP / PHP Artisan Serve |
 | **Cơ sở dữ liệu** | MySQL `>= 8.0` / TiDB Cloud Serverless | Tên database: `prj_minesweeper` |
-| **Tài khoản Quản trị viên (Admin)** | **Email:** `admin@minesweeper.local`<br>**Mật khẩu:** `Admin@123456` | Đăng nhập tại cổng `/admin/login` |
-| **Tài khoản Người chơi mẫu (User)** | **Email:** `test@example.com`<br>**Mật khẩu:** `Password@123456` | Có thể tự tạo tài khoản mới qua form Sign Up |
-| **Phiên Khách vãng lai (Guest)** | Không cần tài khoản | Nhấp nút **Play as Guest** trên trang chủ |
+| **Tài khoản Quản trị viên (Admin)** | **Tên đăng nhập:** `Admin`<br>**Mật khẩu:** `Admin@123456` | Đăng nhập tại cổng `/admin/login` (không dùng email) |
+| **Tài khoản Người chơi mẫu (User)** | **Tên đăng nhập:** `field_player`<br>**Tên hiển thị:** `Field Player`<br>**Mật khẩu:** `secret123` | Tạo nhanh qua tab Đăng ký (không cần email) |
+| **Phiên Khách vãng lai (Guest)** | Không cần tài khoản | Nhấp nút **Chơi với tư cách khách →** trên trang chủ |
 
 ---
 
@@ -62,10 +62,11 @@ Tài liệu này cung cấp **kịch bản kiểm tra nghiệm thu hệ thống 
 ### TC-01: Kiểm tra Xác thực & Phân quyền (Auth & Guest Mode)
 | Bước | Thao tác thực hiện | Kết quả mong đợi | Đánh giá |
 | :---: | :--- | :--- | :---: |
-| 1 | Truy cập `http://127.0.0.1:8000/`. Nhấp tab **Sign Up**. Điền Tên: `Nguyen Van A`, Email: `nva@test.com`, Password: `Password@123`, Confirm: `Password@123`. Bấm **Create Account**. | Tạo tài khoản thành công, mật khẩu băm `bcrypt` trong CSDL, hệ thống tự động đăng nhập và chuyển sang trang chọn chế độ (`/modes`). | ĐẠT |
+| 1 | Truy cập `http://127.0.0.1:8000/`. Nhấp tab **Đăng ký**. Điền Tên hiển thị: `Field Player`, Tên đăng nhập: `field_player`, Mật khẩu: `secret123` (hoàn toàn không cần email). Bấm **Tạo tài khoản →**. | Tạo tài khoản thành công, mật khẩu băm `bcrypt` trong CSDL, hệ thống tự động đăng nhập và chuyển sang trang chọn chế độ (`/modes`). | ĐẠT |
 | 2 | Nhấp biểu tượng tài khoản góc trên bên phải, bấm **Logout**. | Đăng xuất an toàn, hủy session, quay về trang đăng nhập (`/`). | ĐẠT |
-| 3 | Tại trang chủ, bấm nút **Play as Guest**. | Khởi tạo phiên khách trong Session máy chủ (`minefield.guest`), chuyển ngay sang trang `/modes` mà không cần nhập mật khẩu. | ĐẠT |
-| 4 | Đăng nhập tài khoản với mật khẩu sai 10 lần liên tiếp. | Sau 10 lần sai, hệ thống kích hoạt middleware `throttle:10,1`, trả về mã lỗi HTTP 429 và thông báo quá số lần thử. | ĐẠT |
+| 3 | Tại tab **Đăng nhập**, nhập Tên đăng nhập: `field_player`, Mật khẩu: `secret123`. Bấm **Vào bãi mìn →**. | Đăng nhập thành công, chuyển hướng vào `/modes`. | ĐẠT |
+| 4 | Đăng xuất, sau đó tại trang chủ bấm nút **Chơi với tư cách khách →**. | Khởi tạo phiên khách trong Session máy chủ (`minefield.guest = true`), chuyển ngay sang trang `/modes` mà không cần tài khoản. | ĐẠT |
+| 5 | Đăng nhập tài khoản với mật khẩu sai 10 lần liên tiếp. | Sau 10 lần sai, hệ thống kích hoạt middleware `throttle:10,1`, trả về mã lỗi HTTP 429 và thông báo quá số lần thử. | ĐẠT |
 
 ---
 
@@ -144,7 +145,7 @@ Tài liệu này cung cấp **kịch bản kiểm tra nghiệm thu hệ thống 
 ### TC-10: Kiểm tra Cổng Quản trị Admin CMS (/admin)
 | Bước | Thao tác thực hiện | Kết quả mong đợi | Đánh giá |
 | :---: | :--- | :--- | :---: |
-| 1 | Truy cập `/admin/login`. Nhập `admin@minesweeper.local` / `Admin@123456`. | Đăng nhập thành công, chuyển hướng vào `/admin`. Session lưu cờ `is_admin = true`. | ĐẠT |
+| 1 | Truy cập `/admin/login`. Nhập Tên đăng nhập: `Admin` / Mật khẩu: `Admin@123456` (không dùng email). | Đăng nhập thành công, chuyển hướng vào `/admin`. Session lưu cờ `is_admin = true`. | ĐẠT |
 | 2 | Xem Control Room Dashboard. | Hiển thị 4 thẻ KPI (Total Users, Games Played, Win Rate, Leaderboard Records) và bảng thống kê chi tiết tỷ lệ thắng theo 3 chế độ. | ĐẠT |
 | 3 | Trong danh sách người dùng, bấm nút **Lock** một tài khoản bất kỳ. Mở trình duyệt ẩn danh đăng nhập tài khoản đó và bấm chơi game. | Tài khoản bị ngắt session lập tức, middleware `EnsureAccountIsActive` chặn không cho gửi kết quả. Bấm **Unlock** thì tài khoản hoạt động lại bình thường. | ĐẠT |
 | 4 | Thử bấm nút khóa chính tài khoản admin đang đăng nhập. | Hệ thống chặn không cho phép tự khóa tài khoản quản trị viên hiện tại. | ĐẠT |

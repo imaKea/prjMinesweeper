@@ -52,18 +52,24 @@
 
 ### 1.1 Đăng ký, Đăng nhập và Chơi thử Khách (Guest)
 - **Truy cập ứng dụng:** Mở trình duyệt web và truy cập địa chỉ trang chủ `/`.
-- **Đăng ký tài khoản mới (Sign Up):**
-  1. Nhấp chọn tab **Sign Up** trên màn hình chính.
-  2. Điền đầy đủ các thông tin: **Tên hiển thị (Name)**, **Email**, **Mật khẩu (Password)** và **Xác nhận mật khẩu (Confirm Password)**.
-  3. Bấm **Create Account**. Hệ thống sẽ tự động đăng nhập và chuyển hướng sang màn hình chọn chế độ.
-  4. *Lưu ý bảo mật:* Hệ thống áp dụng băm mật khẩu `bcrypt` và chống brute-force giới hạn tối đa 10 lượt gửi/phút (`throttle:10,1`).
 - **Đăng nhập (Login):**
-  1. Nhấp chọn tab **Login**.
-  2. Nhập Email và Mật khẩu đã đăng ký, bấm **Login**.
+  1. Thẻ xác thực mặc định ở tab **Đăng nhập** ("Chào mừng trở lại - Sẵn sàng dò mìn?").
+  2. Người chơi chỉ cần nhập 2 thông tin (hoàn toàn không cần Email):
+     - **Tên đăng nhập (`username`)**: Tên tài khoản đã đăng ký (ví dụ: `field_player`).
+     - **Mật khẩu (`password`)**: Mật khẩu bảo vệ (nhấp biểu tượng con mắt để ẩn/hiện mật khẩu).
+  3. Bấm nút **Vào bãi mìn →**. Hệ thống xác thực và chuyển hướng sang màn hình chọn chế độ (`/modes`).
+- **Đăng ký tài khoản mới (Sign Up):**
+  1. Nhấp chọn tab **Đăng ký** trên thẻ xác thực ("Gia nhập bãi mìn - Lần đầu đến?").
+  2. Giao diện hiển thị các trường nhập thông tin:
+     - **Tên hiển thị (`displayName`)**: Tên hiển thị công khai trên Bảng xếp hạng và thanh tiêu đề (tối đa 24 ký tự). Nếu để trống, hệ thống sẽ tự động lấy Tên đăng nhập làm tên hiển thị.
+     - **Tên đăng nhập (`username`)**: Tên tài khoản duy nhất (từ 3 đến 20 ký tự gồm chữ cái, chữ số hoặc gạch dưới `^[A-Za-z0-9_]{3,20}$`).
+     - **Mật khẩu (`password`)**: Mật khẩu bảo mật tối thiểu 6 ký tự.
+  3. Bấm nút **Tạo tài khoản →**. Hệ thống tự động băm mật khẩu bằng thuật toán an toàn `bcrypt`, lưu vào CSDL, tự động đăng nhập và chuyển sang trang chọn chế độ.
+  4. *Đặc điểm tối ưu:* Hệ thống thiết kế tinh gọn **hoàn toàn không dùng Email**, giúp người chơi tạo tài khoản tức thì mà không cần qua các bước xác minh email rườm rà; đồng thời áp dụng middleware `throttle:10,1` chống tấn công vét cạn (tối đa 10 lượt gửi/phút).
 - **Chơi thử ngay dạng Khách (Play as Guest):**
-  1. Nếu chưa muốn tạo tài khoản, người chơi bấm nút **Play as Guest** ngay trên giao diện đăng nhập.
+  1. Nếu chưa muốn tạo tài khoản, người chơi bấm nút **Chơi với tư cách khách →** ngay dưới form đăng nhập.
   2. Hệ thống sẽ khởi tạo phiên làm việc khách tạm thời trong Session (`minefield.guest = true`).
-  3. Khách được trải nghiệm đầy đủ 9 biến thể game, sử dụng tính năng Gợi ý mìn Hint và xem Bảng xếp hạng. Tuy nhiên, thành tích kỷ lục và trang phục skin sẽ không được lưu trữ vĩnh viễn vào cơ sở dữ liệu nếu không đăng ký tài khoản.
+  3. Khách được trải nghiệm đầy đủ 9 biến thể game, sử dụng tính năng Gợi ý mìn Hint và xem Bảng xếp hạng. Tuy nhiên, thành tích kỷ lục và trang phục skin sẽ không được lưu trữ vĩnh viễn vào cơ sở dữ liệu nếu không tạo tài khoản.
 
 ---
 
@@ -184,11 +190,11 @@ Truy cập vào mục **Shop** (`/shop`) trên thanh điều hướng để khá
 ## PHẦN 2: HƯỚNG DẪN SỬ DỤNG DÀNH CHO QUẢN TRỊ VIÊN (ADMIN CMS MANUAL)
 
 ### 2.1 Cổng đăng nhập Quản trị viên (/admin/login)
-- **Đường dẫn truy cập:** `/admin/login` (Cổng đăng nhập biệt lập hoàn toàn với trang đăng nhập người chơi).
+- **Đường dẫn truy cập:** `/admin/login` (Cổng đăng nhập biệt lập hoàn toàn với trang đăng nhập người chơi; có thể bấm vào liên kết "Quản trị viên" ở góc dưới trang chủ).
 - **Tài khoản quản trị mặc định hệ thống:**
-  - **Email:** `admin@minesweeper.local`
-  - **Mật khẩu:** `Admin@123456`
-- **Bảo mật:** Route đăng nhập quản trị được kiểm soát bởi middleware `throttle:10,1` ngăn chặn triệt để tấn công vét cạn mật khẩu. Sau khi đăng nhập thành công, session quản trị viên được thiết lập với cờ `is_admin = true`.
+  - **Tên đăng nhập (`username`):** `Admin`
+  - **Mật khẩu (`password`):** Cấu hình qua biến môi trường `MINEFIELD_ADMIN_PASSWORD` trong tệp `.env` (mật khẩu mặc định khi seed dev: `Admin@123456`).
+- **Bảo mật:** Giao diện đăng nhập quản trị chỉ yêu cầu **Tên đăng nhập** và **Mật khẩu** (không dùng email), được kiểm soát nghiêm ngặt bởi middleware `throttle:10,1` ngăn chặn brute-force. Sau khi đăng nhập thành công, session quản trị viên được kích hoạt với vai trò `role = 'admin'`.
 
 ---
 
@@ -206,8 +212,10 @@ Sau khi đăng nhập, quản trị viên truy cập vào giao diện Quản tr�
 
 ### 2.3 Quản lý Người dùng: Khóa / Mở khóa và Cấp tặng xu ảo (Give Coins)
 1. **Tra cứu danh sách tài khoản:**
-   - Xem toàn bộ danh sách người dùng gồm: ID, Tên, Email, Số dư xu (`coins`), Trạng thái (`Active` hoặc `Locked`), Ngày tạo tài khoản.
-   - Thanh tìm kiếm hỗ trợ lọc nhanh người dùng theo Tên hoặc Email.
+   - Xem toàn bộ danh sách người chơi trong bảng: Avatar chữ cái đầu, Tên hiển thị (`display_name`), Tên đăng nhập (`@username`), Số dư xu (`coins`), Vai trò (`user` hoặc `admin`), Trạng thái (`Hoạt động` hoặc `Bị khóa`).
+   - Thanh tìm kiếm thông minh: Hỗ trợ tìm kiếm theo **Tên đăng nhập** hoặc **Tên hiển thị**.
+   - Bộ lọc tiện lợi: Lọc theo Vai trò (Tất cả / Người dùng / Quản trị viên) và Trạng thái (Tất cả / Hoạt động / Bị khóa).
+   - Drawer Thêm tài khoản: Bấm nút "Thêm tài khoản" để mở form tạo người dùng mới gồm Tên đăng nhập, Tên hiển thị, Mật khẩu ban đầu và Vai trò.
 2. **Khóa / Mở khóa tài khoản (Lock / Unlock User):**
    - Bấm nút **Lock** để khóa các tài khoản vi phạm.
    - Khi tài khoản bị khóa (`is_locked = 1`), middleware `EnsureAccountIsActive` sẽ **lập tức hủy session đăng nhập** của người dùng đó, đồng thời chặn mọi yêu cầu gửi kết quả hay chơi game tiếp theo.
@@ -287,7 +295,7 @@ php artisan key:generate
 ```powershell
 php artisan migrate:fresh --seed
 ```
-*Lệnh trên sẽ tự động khởi tạo 6 bảng dữ liệu chính, nạp danh mục 3 chế độ chơi, 3 cấp độ khó, danh mục 26 skin và tài khoản quản trị viên mặc định (`admin@minesweeper.local` / `Admin@123456`).*
+*Lệnh trên sẽ tự động khởi tạo 6 bảng dữ liệu chính, nạp danh mục 3 chế độ chơi, 3 cấp độ khó, danh mục 26 skin và tài khoản quản trị viên mặc định (`username: Admin` / `password: Admin@123456`).*
 
 #### Bước 6: Khởi chạy máy chủ phát triển
 ```powershell

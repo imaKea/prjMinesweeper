@@ -1,112 +1,149 @@
 # Minefield — Web Game Minesweeper Đa Chế Độ & Quản Trị Laravel
 
-Minefield là dự án đồ án chuyên ngành phát triển trò chơi Dò Mìn (Minesweeper) hiện đại trên nền tảng web, kết hợp giữa giao diện người dùng tương tác cao (Vanilla JavaScript/CSS, UI Motion) và kiến trúc máy chủ bảo mật, chống gian lận (Laravel 12, MySQL).
+> **Báo cáo tiến độ đồ án chuyên ngành (Tuần 1 – Tuần 13)**  
+> Trường Cao đẳng Lý Tự Trọng TP. Hồ Chí Minh — Khoa Công nghệ Thông tin  
+> Giảng viên hướng dẫn: **ThS. Mai Chiếm Tuấn**  
+> Sinh viên thực hiện:  
+> 1. **Nguyễn Phan Thiên Phước** — MSSV: `25002451` *(Backend Laravel, Security, Docker & Cloud Deploy)*  
+> 2. **Tô Nguyễn Hoàng An** — MSSV: `25002441` *(Frontend Vanilla JS Engine, UI/UX, Motion & Testing)*  
+
+**Minefield** là dự án game Dò Mìn (*Minesweeper*) hiện đại chạy trên nền tảng web đa thiết bị (PC, Tablet, Mobile). Dự án áp dụng mô hình phân tách hiệu năng cao: **Client Engine (Vanilla JS 0ms)** kết hợp **Server Authority (Laravel 12, MySQL / TiDB Cloud)** đảm bảo phản hồi tức thì, bảo mật chống gian lận thời gian mili-giây, nền kinh tế xu ảo, gợi ý mìn vùng biên, cửa hàng 26 skin và bảng điều khiển quản trị CMS chuyên nghiệp.
 
 ---
 
-## 1. TÍNH NĂNG THEO PHÂN QUYỀN
+## 1. TÍNH NĂNG THEO PHÂN QUYỀN & NGHIỆP VỤ HỆ THỐNG
 
 ### 1.1. Khách vãng lai (Guest)
 - **Chơi ngay không cần đăng ký:** Truy cập trực tiếp qua chế độ Khách (`POST /api/guest`).
-- **Trải nghiệm đầy đủ 9 biến thể:** 3 chế độ dò mìn (`Classic`, `Plus`, `Corner`) × 3 cấp độ khó (`Easy`, `Medium`, `Hard`).
-- **Thử nghiệm tính năng Gợi ý (Hint):** Khách được cấp quyền dùng thử tính năng Hint mìn trong phiên làm việc.
-- **Xem Bảng xếp hạng:** Tra cứu bảng xếp hạng thời gian thực của toàn bộ cộng đồng.
-- *Giới hạn:* Ván chơi được lưu tạm trong session máy chủ, không lưu thành kỷ lục cá nhân lâu dài.
+- **Trải nghiệm đủ 9 biến thể:** 3 chế độ (`Classic`, `Plus`, `Corner`) × 3 cấp độ khó (`Easy`, `Medium`, `Hard`).
+- **Thử nghiệm Gợi ý mìn (Hint):** Khách được phép gọi gợi ý mìn vùng biên trực tiếp trong phiên ván đấu.
+- **Xem Bảng xếp hạng:** Tra cứu bảng xếp hạng cộng đồng thời gian thực theo từng chế độ và độ khó.
+- *Giới hạn phiên:* Ván đấu được lưu tạm trong session máy chủ (`session()->pull()` tự hủy sau khi kết thúc ván), không lưu thành kỷ lục cá nhân lâu dài để khuyến khích đăng ký tài khoản.
 
 ### 1.2. Người chơi đã đăng ký (Registered Player)
-- **Xác thực an toàn:** Đăng ký, đăng nhập có băm mật khẩu bảo mật và cơ chế chống vét cạn brute-force (`throttle:10,1`).
-- **Kỷ lục cá nhân & Bảng xếp hạng:** Lưu thành tích ván thắng vào CSDL, xếp hạng cạnh tranh chính xác đến từng mili-giây.
-- **Hệ thống Kinh tế Xu ảo (Coins):**
+- **Xác thực bảo mật:** Đăng ký, đăng nhập băm mật khẩu `Hash::make()` (bcrypt), giới hạn chống brute-force `throttle:10,1`, quản lý session an toàn.
+- **Kỷ lục cá nhân & Bảng xếp hạng:** Tự động ghi nhận thành tích tốt nhất (`records.best_time_ms`) theo từng tổ hợp chế độ và độ khó; bảng xếp hạng phân cấp chính xác từng mili-giây.
+- **Nền kinh tế Xu ảo (Virtual Coins):**
   - Tích lũy xu khi thắng ván đấu: Dễ (+30 xu), Trung bình (+75 xu), Khó (+180 xu).
-  - Chế độ biến thể (`Plus`, `Corner`): Thưởng thêm **+20%** xu cơ bản.
-  - **Thưởng tốc độ (Speed Bonus):** Thắng nhanh dưới 30 giây (+100 xu), dưới 60 giây (+50 xu), dưới 100 giây (+25 xu).
-- **Tính năng Gợi ý mìn thông minh (Hint System):**
-  - Tiêu tốn **100 xu** để nhận 1 gợi ý mìn chính xác (giao dịch trừ xu được xác thực an toàn qua `POST /api/games/{token}/hint`).
-  - Engine JS phía client (`applyHint()`) tự động dò tìm mìn ở vùng biên tiếp giáp ô số đã mở (frontier) và cắm cờ đánh dấu ngay lập tức (Phím tắt: `H`).
-- **Cửa hàng Skin (Shop):**
-  - Khám phá **26 mẫu trang bị**: **13 skin bàn cờ** (giá từ 0 đến 900 xu) và **13 skin lá cờ SVG** (giá từ 0 đến 700 xu).
-  - Giao dịch an toàn qua `DB::transaction()`, tự động trang bị ngay khi mua và hiển thị đồng bộ trên bàn chơi lẫn bản xem trước mini.
-- **Đa nền tảng & Tùy biến giao diện (PC / Tablet / Mobile):**
-  - Giao diện tự động co giãn theo màn hình (desktop 3 cột, tablet/điện thoại đưa HUD & bàn cờ lên đầu), hỗ trợ thanh chuyển nhanh **Mở ô / Cắm cờ** (`touch-tool-bar`) cùng hướng dẫn thao tác riêng cho thiết bị cảm ứng.
-  - Hỗ trợ **7 chủ đề màu Pastel** (Vàng Kim, Hồng Phấn, Xanh Lá, Xanh Lam, Xanh Tím, Đỏ San Hô, Trắng Ngọc) và hiệu ứng hạt/confetti/shockwave tối ưu hiệu năng.
+  - Thưởng chế độ biến thể (`Plus`, `Corner`): Thưởng thêm **+20%** xu cơ bản.
+  - **Thưởng tốc độ (Speed Bonus):** Thắng nhanh dưới 30s (+100 xu), dưới 60s (+50 xu), dưới 100s (+25 xu).
+- **Thuật toán Gợi ý mìn thông minh (Hint System):**
+  - Chi phí **100 xu** cho mỗi lần gọi gợi ý. Backend thẩm định số dư và trừ xu an toàn trong `DB::transaction()`.
+  - Engine JS client (`applyHint()`) tự động quét tìm mìn ở vùng biên tiếp giáp ô số đã mở (*frontier cells*) và tự động cắm cờ chính xác kèm hiệu ứng radar (Phím tắt: `H`).
+- **Cửa hàng 26 Skin cao cấp & Phòng Thử Chiến Thuật 5×5:**
+  - Bộ sưu tập gồm **13 skin bàn cờ** (0 đến 900 xu) và **13 skin lá cờ vector SVG** (0 đến 700 xu), phân cấp 4 bậc: Đồng, Bạc, Vàng, Kim Cương.
+  - **Phòng Thử Chiến Thuật 5×5:** Bàn cờ mini độc lập cho phép click mở ô, cắm cờ trải nghiệm hiệu ứng trực quan trước khi mua.
+  - Hỗ trợ lọc danh mục, ghim mục tiêu phấn đấu, so sánh A/B và nút Hoàn tác; giao dịch bảo toàn qua transaction.
+- **Giao diện Responsive Đa nền tảng & 7 Theme Pastel:**
+  - Tự động co giãn theo màn hình (Desktop 3 cột; Tablet / Mobile đưa HUD và bàn cờ lên đầu, khay chứa `.board-wrap` cuộn ngang mượt mà).
+  - Hỗ trợ thanh chuyển nhanh **Mở ô / Cắm cờ** (`touch-tool-bar`) và cắm cờ bằng thao tác nhấn giữ (Long-press ~380ms) tự động hủy nếu vuốt cuộn màn hình `> 10px`.
+  - Hỗ trợ **7 chủ đề màu Pastel** thanh lịch (Mặc định Emerald, Rose, Amber, Ocean, Violet, Slate, Sunset) kết hợp hiệu ứng UI Motion (rung chấn khi nổ mìn, pháo hoa ăn mừng khi chiến thắng, sóng radar khi gợi ý).
 
-### 1.3. Quản trị viên (Admin)
-- **Cổng đăng nhập chuyên biệt:** Đường dẫn riêng `/admin/login`, bảo vệ tài khoản quản trị.
-- **Bảng điều khiển (Control Room Dashboard):** Thống kê tổng số người chơi, số ván đấu hoàn tất, tỷ lệ thắng/thua theo từng chế độ chơi.
-- **Quản lý Tài khoản (User Management):** Thêm mới, chỉnh sửa thông tin, đổi mật khẩu, xóa tài khoản, Khóa/Mở khóa tài khoản người chơi (có ràng buộc bảo vệ không thể khóa hoặc xóa admin cuối cùng).
-- **Quản lý Bảng xếp hạng (Record Management):** Xem danh sách phân trang, thêm thủ công, sửa thời gian kỷ lục hoặc xóa bỏ các bản ghi không hợp lệ.
-- **Công cụ Điều chỉnh Số dư (Admin Give Coins):** Modal điều chỉnh số dư linh hoạt: cộng tùy biến số xu hoặc cấp nhanh 999.999 xu để kiểm thử hệ thống.
+### 1.3. Quản trị viên (Admin CMS)
+- **Cổng đăng nhập chuyên biệt:** Cổng riêng biệt `/admin/login`, bảo vệ bằng middleware kiểm tra quyền quản trị (`role === 'admin'`).
+- **Control Room Dashboard:** Thống kê tổng số người chơi, số ván đấu hoàn tất, tỷ lệ thắng/thua trực quan theo từng chế độ chơi, danh sách kỷ lục mới nhất.
+- **Quản lý Người dùng (User Management):** Thêm mới tài khoản, chỉnh sửa thông tin, đổi mật khẩu, xóa tài khoản, Khóa/Mở khóa tài khoản ngay lập tức (có ràng buộc bảo vệ không thể khóa hoặc xóa admin cuối cùng).
+- **Quản lý Kỷ lục (Leaderboard Management):** Xem danh sách phân trang, thêm kỷ lục thủ công, sửa đổi thời gian mili-giây, xóa bản ghi gian lận.
+- **Công cụ Cấp Xu (Admin Give Coins):** Modal quản trị cho phép cộng tùy biến số lượng xu hoặc kích hoạt nhanh 999.999 xu phục vụ kiểm thử.
 
-### 1.4. Hướng dẫn cách chơi & Thao tác điều khiển
-- **Chuột trái / Chạm (Desktop & Mobile):** Mở ô an toàn (lần click đầu tiên luôn an toàn, không bao giờ trúng mìn). Ô trống `0` sẽ tự động lan rộng (flood fill).
-- **Chord click:** Click chuột trái / chạm vào **ô số đã mở** khi xung quanh đã cắm đủ số cờ tương ứng để mở nhanh các ô còn lại.
-- **Chuột phải / Chế độ Cắm cờ (Mobile):**
-  - Trên **PC**: Chuột phải hoặc nhấn phím `F` tại ô đang trỏ để cắm/gỡ cờ.
-  - Trên **Điện thoại / Tablet**: Nhấn giữ ô (~380ms) hoặc bật công tắc **🚩 Cắm cờ** ngay phía trên bàn chơi để chạm 1 lần cắm/gỡ cờ nhanh.
-- **Phím tắt nhanh:** `H` dùng Gợi ý mìn (100 xu), `R` chơi lại ván mới.
-- **3 cấp độ mặc định trong CSDL:** Dễ (`9×9 / 10 mìn`), Trung bình (`12×12 / 22 mìn`), Khó (`16×16 / 40 mìn`).
+### 1.4. Cơ chế Chống gian lận Thời gian Đa tầng (Anti-Cheat Timer)
+1. **Server-side Session & Token UUID:** Khi bắt đầu ván (`POST /api/games`), máy chủ sinh mã token UUID duy nhất và ghi nhận mốc `started_at` chính xác mili-giây.
+2. **Validation biên chặt chẽ:** Giá trị `timeMs` gửi lên phải là số nguyên dương hợp lệ (`min:1`, `max:2147483647`).
+3. **Chặn thời gian phi lý:** Thiết lập hằng số `MIN_PLAUSIBLE_TIME_MS = 200 ms` loại bỏ ngay mọi yêu cầu thắng từ 0 đến 199 ms gửi ngay sau khi khởi tạo ván (HTTP 422).
+4. **Kiểm soát dung sai mạng:** Áp dụng ngưỡng dung sai `TIME_TOLERANCE_MS = 2.500 ms`. Nếu `reportedMs + 2500 < (now - started_at)`, máy chủ từ chối kết quả với mã HTTP 422.
+5. **Khớp cấu hình ván (`verifyGamePayload`):** Kiểm tra trùng khớp mode và difficulty, ngăn chặn hành vi chơi ván Dễ nhưng gửi payload nhận thưởng ván Khó.
+6. **Chống Replay Attack:** Token đã thắng gửi lại lần 2 trả HTTP 409 Conflict (thành viên) hoặc 404 Not Found (khách).
+7. **Chống IDOR:** Ràng buộc `where('token', $token)->where('user_id', $user->id)` kết hợp `lockForUpdate()` trong `DB::transaction()`.
+8. **Khóa trạng thái Client Engine:** Sau khi ván đấu ở trạng thái `won` hoặc `lost`, engine JS từ chối mọi click mở ô, cắm cờ hay gọi hint.
+
+### 1.5. Hướng dẫn thao tác điều khiển
+- **Chuột trái / Chạm:** Mở ô an toàn (lần click đầu luôn an toàn, bảo đảm số 0 để loang ô trống flood-fill).
+- **Chord click:** Click chuột trái / chạm vào ô số đã mở khi xung quanh đã cắm đủ số cờ tương ứng để mở nhanh các ô còn lại.
+- **Chuột phải / Nhấn giữ (Mobile):** Cắm/gỡ lá cờ đánh dấu ô có mìn.
+- **Phím tắt nhanh (PC):**
+  - `F`: Cắm / gỡ cờ tại ô đang trỏ chuột.
+  - `H`: Sử dụng Gợi ý mìn thông minh (tiêu tốn 100 xu).
+  - `R`: Khởi động lại ván chơi mới nhanh chóng.
+- **3 cấp độ mặc định:** Dễ (`9×9 / 10 mìn`), Trung bình (`12×12 / 22 mìn`), Khó (`16×16 / 40 mìn`).
 
 ---
 
-## 2. CÔNG NGHỆ VÀ PHIÊN BẢN THỰC TẾ
+## 2. CÔNG NGHỆ VÀ PHIÊN BẢN HỆ THỐNG
 
-- **Ngôn ngữ Backend:** PHP `^8.2` (Container deploy dùng `php:8.3-apache`)
-- **Framework:** Laravel Framework `^12.0`
-- **Cơ sở dữ liệu:** MySQL / TiDB Cloud Serverless (kết nối qua PDO MySQL, hỗ trợ SSL `MYSQL_ATTR_SSL_CA` và khóa ngoại cascade)
-- **Kiểm thử Backend:** PHPUnit `^11.5.50` (chạy kiểm thử chức năng bằng SQLite in-memory)
-- **Môi trường Frontend & Build:** Node.js (`v20+` trong Docker), Vite `^7.0.7`, Tailwind CSS `^4.0.0`
-- **Giao diện Gameplay:** Blade Template, HTML5, CSS3 tùy biến (`public/minefield/css/style.css`, `ui-theme.css`) và Vanilla JavaScript (`public/minefield/js/*.js`) nạp trực tiếp kèm cache-busting riêng từng file theo `filemtime()`.
+- **Backend Framework:** PHP `^8.2 / 8.3` — **Laravel Framework `^12.0`**
+- **Web Server Runtime:** Apache 2.4 (với `mod_rewrite` hỗ trợ route Laravel)
+- **Cơ sở dữ liệu:** **MySQL 8.0** (Local XAMPP) / **TiDB Cloud Serverless** (kết nối PDO SSL với chứng chỉ `ca-certificates.crt`)
+- **Kiểm thử tự động:** PHPUnit `^11.5.50` (SQLite in-memory) & Node.js test runner (`assert/strict`)
+- **Frontend & Assets:** HTML5, CSS3, Blade Template, Vanilla JavaScript (IIFE modular), **Vite `^7.0.7`**, **Tailwind CSS `^4.0.0`**
+- **Đóng gói & Đám mây:** **Docker** (Multi-stage build `node:20-alpine` + `php:8.3-apache`), **Render Web Service**
 
 ---
 
-## 3. CẤU TRÚC THƯ MỤC DỰ ÁN
+## 3. CẤU TRÚC MÃ NGUỒN DỰ ÁN
 
 ```text
 prjMinesweeper/
 ├── app/
 │   ├── Http/
 │   │   ├── Controllers/
-│   │   │   ├── MinefieldAdminController.php   # Quản trị CMS, thống kê, user, record, cộng xu
-│   │   │   ├── MinefieldAuthController.php    # Xác thực: signup, login, adminLogin, guest, logout
-│   │   │   ├── MinefieldGameController.php    # Phiên ván đấu, chống gian lận Timer, hint, win/loss, leaderboard
-│   │   │   └── MinefieldShopController.php    # Cửa hàng skin: catalog, buy, equip
+│   │   │   ├── MinefieldAdminController.php   # Quản trị CMS, thống kê Control Room, CRUD user/record, cấp xu
+│   │   │   ├── MinefieldAuthController.php    # Xác thực: signup, login, adminLogin, guest, logout, throttle
+│   │   │   ├── MinefieldGameController.php    # Quản lý ván đấu, verifyTime chống gian lận, hint, win/loss, leaderboard
+│   │   │   └── MinefieldShopController.php    # Cửa hàng skin: catalog, buy, equip qua DB transaction
 │   │   └── Middleware/
-│   │       ├── EnsureAccountIsActive.php      # Ngăn chặn tài khoản bị khóa thao tác
-│   │       └── EnsureActiveGame.php           # Kiểm tra ván game hợp lệ đang chơi
+│   │       ├── EnsureAccountIsActive.php      # Chặn tài khoản bị khóa thao tác hệ thống
+│   │       └── EnsureActiveGame.php           # Thẩm định phiên ván đấu đang hoạt động
 │   ├── Models/
-│   │   ├── Difficulty.php, GameMode.php       # Danh mục độ khó và chế độ chơi
-│   │   ├── Game.php, Record.php               # Quản lý ván đấu và kỷ lục leaderboard
+│   │   ├── Difficulty.php, GameMode.php       # Danh mục độ khó và chế độ chơi (lưu neighbor_offsets JSON)
+│   │   ├── Game.php, Record.php               # Quản lý phiên ván đấu và kỷ lục leaderboard
 │   │   └── User.php, UserSkin.php             # Tài khoản người dùng và skin sở hữu
 │   └── Services/
-│       └── SkinCatalog.php                    # Bảng định nghĩa 26 skin (13 bàn cờ + 13 cờ), tính xu & speed bonus
+│       ├── MinefieldEngineService.php         # Dịch vụ engine hỗ trợ phía backend
+│       └── SkinCatalog.php                    # Danh mục 26 skin, quy tắc tính xu, Speed Bonus và Hint cost
 ├── database/
-│   ├── migrations/                            # Các migration CSDL (users, cache, jobs, minefield, user_skins...)
+│   ├── migrations/                            # Schema 6 bảng chính và các bảng hạ tầng Laravel
 │   └── seeders/
-│       ├── AdminUserSeeder.php                # Khởi tạo tài khoản admin bảo mật từ biến môi trường
+│       ├── AdminUserSeeder.php                # Khởi tạo tài khoản Admin từ biến môi trường
 │       ├── DatabaseSeeder.php                 # Nạp dữ liệu khởi tạo mặc định
 │       └── MinefieldSeeder.php                # Nạp 3 chế độ (classic/plus/corner) & 3 độ khó (easy/medium/hard)
 ├── public/minefield/
-│   ├── css/                                   # style.css, ui-theme.css (theme pastel, responsive mobile/tablet/PC, 13 skin)
-│   └── js/                                    # engine.js, game.js, skins.js, shop.js, api.js, ui.js, ui-motion.js, admin.js...
-├── resources/views/minefield/                 # Blade views: login, admin-login, modes, game, shop, admin, partials/
-├── routes/web.php                             # Định tuyến Web và RESTful API
+│   ├── css/
+│   │   ├── style.css                          # Layout tổng thể, responsive mobile/tablet/desktop, bàn cờ .board-wrap
+│   │   └── ui-theme.css                       # Định nghĩa 7 theme Pastel và class hiển thị 13 skin bàn cờ
+│   └── js/
+│       ├── engine.js                          # Core JS Engine: Safe click, láng giềng, flood-fill, chording, applyHint
+│       ├── game.js                            # Điều phối Gameplay, HUD Timer mili-giây, touch controls, sự kiện phím
+│       ├── skins.js                           # Định nghĩa 13 skin cờ SVG vector và cấu hình giao diện
+│       ├── shop.js                            # Logic Cửa hàng Skin, bộ lọc, ghim mục tiêu, Phòng Thử Chiến Thuật 5×5
+│       ├── api.js                             # Module bọc các lời gọi RESTful API đến Laravel backend
+│       ├── ui.js                              # Quản lý modal, thông báo toast, chuyển tab giao diện
+│       ├── ui-motion.js                       # Hiệu ứng đồ họa: Screen shake rung chấn, Confetti pháo hoa, Radar sóng
+│       ├── admin.js                           # Dashboard Control Room, biểu đồ win-rate, CRUD modal
+│       ├── config.js, modes.js, login.js      # Scripts hỗ trợ cấu hình và điều hướng màn hình
+├── resources/views/minefield/                 # Blade templates: game, shop, modes, login, admin-login, admin...
+├── routes/web.php                             # Toàn bộ định tuyến Web UI và RESTful API
 ├── tests/
-│   ├── Feature/                               # AntiCheatAndTimerTest.php, MinefieldFlowTest.php, ShopAndCurrencyTest.php
-│   ├── Unit/                                  # ExampleTest.php
-│   └── js/engine.test.cjs                     # Kiểm thử thuật toán láng giềng và luật mìn (CommonJS)
-├── Dockerfile                                 # Multi-stage build (Node 20 Vite build + PHP 8.3 Apache)
-└── docker-entrypoint.sh                       # Tự động migrate/seed khi khởi động container
+│   ├── Feature/
+│   │   ├── AntiCheatAndTimerTest.php          # 9 test cases chuyên sâu kiểm toán an ninh Timer & Anti-Cheat
+│   │   ├── MinefieldFlowTest.php              # 19 test cases vòng đời game, auth, session khách, admin CRUD
+│   │   └── ShopAndCurrencyTest.php            # 10 test cases kinh tế xu, Speed Bonus, Hint 100 xu, mua/trang bị skin
+│   ├── Unit/
+│   │   └── ExampleTest.php                    # Unit test cơ bản
+│   └── js/engine.test.cjs                     # 25 test cases độc lập DOM chạy bằng Node.js cho JS Engine
+├── Dockerfile                                 # Multi-stage Docker build chuẩn hóa (Node 20 + PHP 8.3 Apache)
+├── docker-entrypoint.sh                       # Script entrypoint: tự động nhận PORT, chờ DB, auto migrate/seed
+└── Nguyen_Phan_Thien_Phuoc_To_Nguyen_Hoang_An/ # Thư mục đóng gói nộp đồ án chuẩn hóa theo quy định Khoa CNTT
 ```
 
 ---
 
-## 4. HƯỚNG DẪN CÀI ĐẶT VÀ KHỞI CHẠY
+## 4. HƯỚNG DẪN CÀI ĐẶT VÀ KHỞI CHẠY HỆ THỐNG
 
-### 4.1. Khởi chạy với XAMPP (Apache & MySQL)
+### 4.1. Khởi chạy trên môi trường Local XAMPP
 
-1. Mở **XAMPP Control Panel**, nhấn **Start** cho hai dịch vụ **Apache** và **MySQL**.
-2. Truy cập phpMyAdmin (`http://localhost/phpmyadmin`), tạo mới một cơ sở dữ liệu có tên `minefield` với bảng mã `utf8mb4_unicode_ci`.
-3. Kiểm tra tệp `.env` trong thư mục gốc dự án (nếu chưa có, sao chép từ `.env.example`):
+1. Mở **XAMPP Control Panel**, nhấn **Start** dịch vụ **Apache** và **MySQL**.
+2. Truy cập phpMyAdmin (`http://localhost/phpmyadmin`), tạo cơ sở dữ liệu `minefield` (bảng mã `utf8mb4_unicode_ci`).
+3. Sao chép và cấu hình tệp `.env` tại thư mục gốc dự án:
    ```env
    DB_CONNECTION=mysql
    DB_HOST=127.0.0.1
@@ -114,40 +151,36 @@ prjMinesweeper/
    DB_DATABASE=minefield
    DB_USERNAME=root
    DB_PASSWORD=
-   ```
-4. Thiết lập mật khẩu cho tài khoản Quản trị viên trong `.env` (bắt buộc dài tối thiểu 12 ký tự):
-   ```env
+
    MINEFIELD_ADMIN_USERNAME=Admin
    MINEFIELD_ADMIN_PASSWORD=MatKhauBaoMatCuaBan123!
    ```
-   > **CẢNH BÁO BẢO MẬT:** Tuyệt đối không để lộ giá trị `MINEFIELD_ADMIN_PASSWORD` hoặc tải tệp `.env` lên kho lưu trữ công khai.
-5. Mở PowerShell tại thư mục dự án và thực thi lệnh migrate kèm seeder:
+4. Thực thi chạy Migration và nạp dữ liệu mẫu:
    ```powershell
    php artisan migrate --seed
-   ```
-6. Khởi tạo tài khoản Admin bằng lệnh:
-   ```powershell
    php artisan db:seed --class=AdminUserSeeder
    ```
-7. Mở trình duyệt và truy cập:
-   `http://localhost/prjMinesweeper/public`
+5. Mở trình duyệt và truy cập:  
+   `http://localhost/prjMinesweeper_antigravity/prjMinesweeper/public` *(hoặc đường dẫn tương ứng trong thư mục htdocs của bạn)*.
 
 ---
 
 ### 4.2. Khởi chạy bằng máy chủ phát triển nội bộ (`php artisan serve`)
 
-1. Thiết lập trong `.env`:
+1. Cập nhật `APP_URL` trong `.env`:
    ```env
    APP_URL=http://127.0.0.1:8000
    ```
-2. Thực thi lệnh khởi chạy máy chủ PHP:
+2. Thực thi lệnh:
    ```powershell
    php artisan serve
    ```
-3. Mở trình duyệt và truy cập:
-   `http://127.0.0.1:8000`
+3. Truy cập trình duyệt tại địa chỉ: `http://127.0.0.1:8000`.
 
-### 4.3. Cài đặt dependency & Build Production
+---
+
+### 4.3. Cài đặt Dependency & Biên dịch Production Assets
+
 ```powershell
 composer install --no-dev --optimize-autoloader
 npm install
@@ -156,85 +189,114 @@ php artisan config:cache
 php artisan route:cache
 php artisan view:cache
 ```
-- Lệnh `npm run build` thực thi `vite build` và xuất asset đã biên dịch ra thư mục `public/build/`.
-- Tài nguyên trò chơi trong `public/minefield/` được nạp thông qua base path động (`request()->getBaseUrl()`), tương thích cả khi chạy ở root domain (`/`) hoặc thư mục con (subpath).
-
-### 4.4. Deploy Cloud với Docker (Render + TiDB Cloud Serverless)
-Project đã tích hợp sẵn [Dockerfile](Dockerfile) (`node:20-alpine` build asset Vite + `php:8.3-apache`) và [docker-entrypoint.sh](docker-entrypoint.sh) để tự động kiểm tra kết nối DB, chạy `php artisan migrate --force`, nạp dữ liệu mặc định và tạo tài khoản admin khi khởi động container.
-- **Biến môi trường chính trên Cloud:**
-  - `APP_ENV=production`, `APP_DEBUG=false`, `APP_KEY=...`, `APP_URL=https://<your-service>.onrender.com`
-  - Kết nối **TiDB Cloud**: `DB_CONNECTION=mysql`, `DB_PORT=4000`, `MYSQL_ATTR_SSL_CA=/etc/ssl/certs/ca-certificates.crt` (cấu hình trust proxy & force HTTPS đã xử lý trong `bootstrap/app.php` và `AppServiceProvider.php`).
-  - Tài khoản quản trị tự động: `MINEFIELD_ADMIN_USERNAME`, `MINEFIELD_ADMIN_PASSWORD` (tối thiểu 12 ký tự).
-- **Lưu ý nền tảng Static:** Do đây là ứng dụng full-stack **Laravel + MySQL/TiDB**, không chạy trực tiếp được trên GitHub Pages hoặc Netlify static.
+*Ghi chú:* Lệnh `npm run build` sử dụng Vite 7 và Tailwind CSS 4 để biên dịch các asset production ra thư mục `public/build/`. Mọi đường dẫn asset trong game đều hỗ trợ base URL động, đảm bảo tương thích khi chạy trên root domain hoặc subpath.
 
 ---
 
-## 5. BẢNG DANH MỤC ĐƯỜNG DẪN VÀ API
+### 4.4. Đóng gói Docker & Triển khai Cloud (Render + TiDB Cloud Serverless)
+
+Dự án đã cấu hình hoàn chỉnh Dockerfile đa tầng và script khởi chạy tự động:
+- **Build Container cục bộ:**
+  ```powershell
+  docker build -t minefield-app .
+  docker run -p 8080:80 -e PORT=80 minefield-app
+  ```
+- **Triển khai trên Cloud Render & TiDB Cloud:**
+  - **Render Web Service:** Kết nối GitHub repository, chọn Environment là **Docker**.
+  - **Biến môi trường Production:**
+    - `APP_ENV=production`, `APP_DEBUG=false`, `APP_KEY=base64:...`, `APP_URL=https://<your-app>.onrender.com`
+    - `DB_CONNECTION=mysql`, `DB_HOST=<tidb-host>`, `DB_PORT=4000`, `DB_DATABASE=minefield`, `DB_USERNAME=<user>`, `DB_PASSWORD=<pass>`
+    - `MYSQL_ATTR_SSL_CA=/etc/ssl/certs/ca-certificates.crt` (hỗ trợ mã hóa kết nối SSL an toàn qua TiDB Cloud)
+    - `MINEFIELD_ADMIN_USERNAME=Admin`, `MINEFIELD_ADMIN_PASSWORD=<MatKhauAdminBaoMat>`
+  - Khi container khởi động, `docker-entrypoint.sh` sẽ tự động chờ kết nối DB, chạy `php artisan migrate --force`, nạp seeder danh mục và tạo tài khoản Admin mà không cần can thiệp thủ công.
+
+---
+
+## 5. BẢNG DANH MỤC ĐƯỜNG DẪN VÀ API HỆ THỐNG
 
 ### 5.1. Giao diện Web (Web Pages)
-- `GET /` — Màn hình Đăng nhập / Đăng ký người chơi
-- `GET /admin/login` — Cổng Đăng nhập Quản trị viên
+- `GET /` — Màn hình Đăng nhập / Đăng ký người chơi và chơi thử Khách
+- `GET /admin/login` — Cổng Đăng nhập chuyên biệt dành cho Quản trị viên
 - `GET /modes` — Màn hình Lựa chọn Chế độ chơi và Cấp độ khó
-- `GET /game` — Màn hình Bàn cờ Dò mìn (Gameplay HUD, Hint button)
-- `GET /shop` — Cửa hàng Trang bị Skin Bàn cờ và Lá cờ
-- `GET /admin` — Bảng điều khiển Quản trị viên (Minefield Control Room, yêu cầu quyền `admin`)
+- `GET /game` — Màn hình Bàn cờ Dò mìn (HUD, Timer, Hint, Cảm ứng mobile)
+- `GET /shop` — Cửa hàng Trang bị Skin và Phòng Thử Chiến Thuật 5×5
+- `GET /admin` — Bảng điều khiển Quản trị viên (Minefield Control Room, yêu cầu role `admin`)
 
-### 5.2. Quản trị viên (Admin Management APIs)
+### 5.2. RESTful API Xác thực & Phiên làm việc (Auth)
+- `GET /api/session` — Lấy thông tin phiên làm việc hiện tại
+- `POST /api/signup` — Đăng ký tài khoản mới (giới hạn `throttle:10,1`)
+- `POST /api/login` — Đăng nhập người dùng (giới hạn `throttle:10,1`)
+- `POST /api/admin/login` — Đăng nhập quản trị viên (giới hạn `throttle:10,1`)
+- `POST /api/guest` — Khởi tạo phiên chơi thử Khách vãng lai
+- `POST /api/logout` — Đăng xuất và hủy session
+
+### 5.3. RESTful API Gameplay, Chống gian lận & Leaderboard
+- `POST /api/games` — Khởi tạo ván đấu mới, cấp UUID token và lưu mốc `started_at`
+- `POST /api/games/{token}/hint` — Xác thực trừ 100 xu trong DB cho mỗi lần gọi gợi ý mìn
+- `POST /api/games/{token}/win` — Thẩm định thời gian (`MIN_PLAUSIBLE_TIME_MS = 200`, `TIME_TOLERANCE_MS = 2500`), kiểm tra mode/difficulty, chống replay, cộng xu thưởng, speed bonus và lưu kỷ lục
+- `POST /api/games/{token}/loss` — Ghi nhận kết thúc ván thua vào CSDL
+- `GET /api/leaderboard` — Lấy danh sách bảng xếp hạng theo chế độ và độ khó
+- `GET /api/best-time` — Lấy thành tích tốt nhất của người dùng hiện tại
+
+### 5.4. RESTful API Cửa hàng Skin
+- `GET /api/shop` — Lấy danh mục 26 skin và số dư xu người chơi
+- `POST /api/shop/buy` — Mua skin bằng xu ảo (xử lý transaction an toàn)
+- `POST /api/shop/equip` — Trang bị skin đã sở hữu
+
+### 5.5. RESTful API Quản trị viên (Admin CMS)
 - `POST /admin/users` — Tạo mới tài khoản người dùng
 - `PUT /admin/users/{user}` — Cập nhật thông tin / mật khẩu tài khoản
 - `DELETE /admin/users/{user}` — Xóa tài khoản
-- `POST /admin/users/{user}/lock` — Khóa / Mở khóa tài khoản
-- `POST /admin/users/{user}/give-coins` (kèm alias `infinite-coins`) — Điều chỉnh số dư xu cho tài khoản
-- `POST /admin/give-coins` (kèm alias `infinite-coins`) — Điều chỉnh số dư xu cho admin hiện tại
+- `POST /admin/users/{user}/lock` — Khóa / Mở khóa tài khoản người dùng
+- `POST /admin/users/{user}/give-coins` (kèm alias `infinite-coins`) — Cấp xu cho tài khoản chỉ định
+- `POST /admin/give-coins` — Cấp xu cho tài khoản admin hiện tại
 - `POST /admin/records` — Thêm thủ công kỷ lục leaderboard
 - `PUT /admin/records/{record}` — Chỉnh sửa kỷ lục leaderboard
 - `DELETE /admin/records/{record}` — Xóa kỷ lục leaderboard
 
-### 5.3. Xác thực & Phiên làm việc (Auth APIs)
-- `GET /api/session` — Lấy thông tin phiên làm việc hiện tại
-- `POST /api/signup` — Đăng ký tài khoản (giới hạn `throttle:10,1`)
-- `POST /api/login` — Đăng nhập người chơi (giới hạn `throttle:10,1`)
-- `POST /api/admin/login` — Đăng nhập quản trị viên (giới hạn `throttle:10,1`)
-- `POST /api/guest` — Khởi tạo phiên chơi vãng lai
-- `POST /api/logout` — Đăng xuất phiên làm việc
-
-### 5.4. Phiên chơi Game, Thành tích & Leaderboard APIs
-> *Kiến trúc phân tách hiệu năng cao:* Toàn bộ logic bàn cờ (sinh mìn an toàn, mở ô, flood-fill, cắm cờ, chording, tìm gợi ý frontier) chạy trực tiếp bằng JavaScript (`public/minefield/js/engine.js` & `game.js`) với độ trễ **0ms**. Backend Laravel tập trung xử lý cơ sở dữ liệu, xác thực phiên chơi, kiểm tra anti-cheat thời gian, giao dịch xu và bảng xếp hạng.
-- `POST /api/games` — Bắt đầu ván đấu mới, cấp UUID token và lưu mốc `started_at`
-- `POST /api/games/{token}/hint` — Xác thực & trừ 100 xu trong DB cho mỗi lần dùng gợi ý mìn
-- `POST /api/games/{token}/win` — Kiểm tra thời gian (ngưỡng sai số `2.500 ms`), ghi nhận kết quả thắng, cộng xu thưởng + speed bonus và cập nhật leaderboard
-- `POST /api/games/{token}/loss` — Ghi nhận kết thúc thua ván vào CSDL
-- `GET /api/leaderboard` — Lấy danh sách bảng xếp hạng theo chế độ & độ khó
-- `GET /api/best-time` — Lấy thành tích tốt nhất của người dùng/chế độ hiện tại
-
-### 5.5. Cửa hàng Skin APIs
-- `GET /api/shop` — Lấy danh mục 26 skin (13 bàn cờ + 13 cờ) và số dư xu người chơi
-- `POST /api/shop/buy` — Mua skin bằng xu ảo (xử lý `DB::transaction`)
-- `POST /api/shop/equip` — Trang bị skin đã sở hữu
-
 ---
 
-## 6. HƯỚNG DẪN CHẠY KIỂM THỬ (TESTING)
+## 6. KẾT QUẢ KIỂM THỬ TỰ ĐỘNG (AUTOMATED TESTING)
 
-### 6.1. Kiểm thử Backend Laravel (PHPUnit)
-Chạy toàn bộ 40 bài kiểm thử chức năng tự động (chạy trên bộ nhớ in-memory SQLite):
+### 6.1. Kiểm thử Backend Laravel (PHPUnit 11.5)
+Chạy toàn bộ 40 bài kiểm thử chức năng tự động:
 ```powershell
 php artisan test
 ```
-*Kết quả xác thực:* **40 passed (259 assertions)**. Bao phủ toàn diện render giao diện, phân quyền, đăng nhập chống brute-force, quản trị tài khoản, ghi nhận thắng/thua trong CSDL, chống gian lận Timer (`TIME_TOLERANCE_MS = 2500`, `MIN_PLAUSIBLE_TIME_MS = 200`, chống replay token, chống IDOR và giả mạo độ khó), xác thực trừ xu khi hint, kinh tế xu, thưởng tốc độ và giao dịch mua/trang bị skin.
+**Kết quả thực tế:** **40 passed (259 assertions)** — Hoàn thành 100% không lỗi.
+- `AntiCheatAndTimerTest.php` (9 tests): Kiểm tra chặn `timeMs <= 0`, chặn `< 200ms`, ranh giới dung sai 2.500ms, chống replay token thành viên/khách, chống gửi win/hint sau khi loss, chặn tráo đổi mode/difficulty, chống IDOR đánh cắp token, bảo toàn kỷ lục `isBest`.
+- `MinefieldFlowTest.php` (19 tests): Render đầy đủ view/assets, xử lý bảng danh mục, vòng đời ván đấu thành viên và khách, xếp hạng mili-giây, phân quyền chặt chẽ, chống brute-force đăng nhập, CRUD tài khoản, khóa tài khoản, CRUD kỷ lục, cấp xu admin.
+- `ShopAndCurrencyTest.php` (10 tests): Thưởng xu theo độ khó, thưởng +20% chế độ biến thể, thưởng tốc độ Speed Bonus, trừ 100 xu Hint, từ chối khi không đủ xu, mua và tự động trang bị skin qua transaction.
 
-### 6.2. Kiểm thử Thuật toán Engine Client (JavaScript Unit Test)
-Chạy bộ kiểm thử 25 test case độc lập DOM cho thuật toán láng giềng, luật mìn, khóa trạng thái và Hint:
+### 6.2. Kiểm thử Engine JavaScript Client (Node.js Test Runner)
+Chạy bộ kiểm thử 25 test cases độc lập DOM:
 ```powershell
 node tests/js/engine.test.cjs
 ```
-> **Lưu ý:** Tệp kiểm thử JavaScript được định dạng theo chuẩn CommonJS (`.cjs`). Sử dụng lệnh `node tests/js/engine.test.cjs` để thực thi trực tiếp bằng Node.js.  
-*Kết quả xác thực:* **25 tests passed** (Neighbors: 3, Mine placement: 10, Flood-fill: 2, Flags & chord: 3, Win/lose: 3, Hint: 2, Edge cases & state locks: 2).
+**Kết quả thực tế:** **25 passed** (100% PASS).
+- Láng giềng: 3/3 tests (Cổ điển 8 ô, Dấu cộng 4 ô, Góc chéo 4 ô).
+- Sinh mìn an toàn (Safe First Click): 10/10 tests (Đủ 9 biến thể + kiểm tra góc, ô đầu ra số 0).
+- Loang ô trống (Flood-fill): 2/2 tests (Loang đúng quy tắc, bảo vệ ô có cờ).
+- Cắm cờ & Chord: 3/3 tests (Tăng giảm cờ, mở nhanh khi đủ cờ, chord cờ sai gây thua).
+- Thắng / Thua: 3/3 tests (Mở hết ô an toàn thắng, bấm mìn thua, reset sạch trạng thái).
+- Hint System: 2/2 tests (Tìm đúng mìn vùng biên, cắm cờ chính xác).
+- Khóa trạng thái: 2/2 tests (Chặn mọi thao tác sau khi kết thúc ván, bảo vệ ô cắm cờ).
 
 ---
 
-## 7. GIỚI HẠN VÀ LƯU Ý PHẠM VI DỰ ÁN
+## 7. ĐÓNG GÓI SẢN PHẨM BÀN GIAO & CAM KẾT HỌC THUẬT
 
-- **Không hỗ trợ chơi nhiều người thời gian thực (Multiplayer/Co-op):** Dự án tập trung tối ưu trải nghiệm chơi đơn (Single Player) chất lượng cao và cạnh tranh thành tích gián tiếp qua Bảng xếp hạng.
+### 7.1. Cấu trúc Thư mục Đóng gói Nộp Đồ án
+Thư mục bàn giao theo đúng quy chuẩn Khoa Công nghệ Thông tin:
+`Nguyen_Phan_Thien_Phuoc_To_Nguyen_Hoang_An/`
+- `PhieuDangKyDeTai/`: `PhieuDangKyDeTai.docx` và `.pdf` (Phiếu đăng ký đã chỉnh sửa).
+- `BaoCao/`: `BaoCao.docx` và `.pdf` (Báo cáo tổng hợp từ Tuần 1 đến Tuần 13).
+- `SourceCode/`: `SourceCode.zip` (Mã nguồn sạch, loại trừ `vendor/` và `node_modules/`) và `ScriptDataBase_Minefield.sql` (Kịch bản CSDL độc lập).
+- `TaiLieu/`: `TaiLieuHuongDan.docx` (Tài liệu hướng dẫn cài đặt và giải thích kiến trúc).
+- `Slide/`: `SlideBaoCao.pptx` (Slide trình bày báo cáo đồ án).
+- `VideoDemo/`: `DemoSanPham.mp4` (Video quay minh họa đầy đủ tính năng hệ thống).
+
+### 7.2. Cam kết Học thuật & Giới hạn Phạm vi
+- **Không hỗ trợ Multiplayer thời gian thực:** Dự án tập trung tối ưu trải nghiệm chơi đơn (Single Player) chất lượng cao và cạnh tranh thành tích gián tiếp qua Bảng xếp hạng.
 - **Không tích hợp thanh toán tiền thật:** Toàn bộ hệ thống giao dịch sử dụng cơ chế **Xu ảo (Coins)** tự kiếm qua kỹ năng chiến thắng trong game.
-- **Thuật toán Gợi ý mìn thông minh (Hint System):** Nhóm tập trung triển khai **Hệ thống Gợi ý mìn thông minh (Hint System)** theo đúng phiếu đăng ký đề tài, kết hợp thuật toán tìm mìn vùng biên ở client (`engine.js`) và xác thực trừ xu an toàn phía máy chủ Laravel qua `DB::transaction()`.
+- **Cam kết sử dụng AI có trách nhiệm:** Các công cụ AI (ChatGPT, Claude, Gemini, Copilot) chỉ được dùng để hỗ trợ phân tích ca kiểm thử biên (edge cases), gợi ý cú pháp và tối ưu tài liệu. Nhóm sinh viên tự tay thực thi, kiểm chứng kết quả và nắm vững 100% mã nguồn để bảo vệ trước Hội đồng chấm thi.
